@@ -417,8 +417,7 @@ def strategy_runner(settings):
     settings.update(schedule=schedule)
     data = data_processing.Data(settings)
     settings.update(data=data)
-
-    correlation_estimate.CorrelationEstimator(settings)
+    correlations = correlation_estimate.CorrelationEstimator(settings)
 
     print("")
     # PairScreening(settings)
@@ -434,7 +433,6 @@ def main():
     # and then loaded by all strategies ??
 
     strategy_runner(settings.test_strategy)
-    # WebApp()
 
 if __name__ == '__main__':
     main()

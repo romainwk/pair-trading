@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-
 class WebApp(object):
     def __init__(self):
         pass
@@ -17,11 +16,22 @@ class WebApp(object):
 
     def methodology(self):
 
+
+        # universe of eligible pairs are identified by means of long term correlation among each industry group
+        df = pd.read_csv(f"{FILE_PATH}\\data\\S&P500_classification.csv", index_col=0)
+
         # stocks are divided into sectors (GICS) to reduce dimensionality / spurious corr
+        x = df["GIC_sub_industry"].groupby(df.GIC_sub_industry).count()
 
-        # universe of eligible pairs are identified by means of long term correlation among each sector group
+        fig, axes = plt.subplots(figsize=(25, 4))
+        x.sort_values(ascending=False).plot.bar(ax=axes)
+        # df.plot(ax=axes)
+        st.pyplot(fig)
 
-
+        # double quantile sorting
+        # # To reduce dimensionality, for each stock i, only consider a pair with stock j in the top quantile of its pairwise correlation
+        # # Selected pair is given by top quantile among the group at each date
+        print("")
         st.write("This is a band-stop filter on the z-score")
 
         fig, axes = plt.subplots(figsize=(8, 4))
@@ -45,6 +55,7 @@ class WebApp(object):
     def limitations(self):
         st.write("No access to historical comp of indices \n "
                  "Transaction cost v rough"
+                 "GIC industry -> would be better to use"
                  "")
 
     def run(self):
@@ -57,3 +68,9 @@ class WebApp(object):
                            )
 
         pg.run()
+
+def main():
+    WebApp()
+
+if __name__ == '__main__':
+    main()

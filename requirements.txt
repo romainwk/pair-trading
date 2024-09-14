@@ -7,3 +7,4 @@ yfinance
 bs4
 statsmodels
 matplotlib
+scikit-learn
