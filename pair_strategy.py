@@ -523,7 +523,7 @@ def main():
                              transaction_cost=0.1*1/np.sqrt(252), # multiple of running std. e.g. for a stock running 15% vol annualised, charges 10 bps entry/exit (one way)
                              )
 
-    strategy_runner(strategy_settings)
+    # strategy_runner(strategy_settings)
     WebApp()
 
 if __name__ == '__main__':
