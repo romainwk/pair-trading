@@ -1,189 +1,50 @@
-import datetime
-import numpy as np
-# from pandas.tseries.holiday import get_calendar, HolidayCalendarFactory, GoodFriday
-# from datetime import datetime
-import scipy
-import pandas as pd
-import statsmodels.api as sm
-from pydeck import settings
-from statsmodels.regression.rolling import RollingOLS
-import matplotlib.pyplot as plt
-import itertools
-import logging
+from streamlit import columns
 
-import scheduler
-import settings
-import data_processing
-import correlation_estimate
-import visualisation
-import strategy
 from settings import FILE_PATH
+import pandas as pd
+import numpy as np
+from statsmodels.regression.rolling import RollingOLS
+from joblib import Parallel, delayed
+from collections import ChainMap
+import scipy
+import os
 
-from importlib import reload
-reload(scheduler)
-reload(settings)
-reload(data_processing)
-reload(correlation_estimate)
-reload(strategy)
-reload(visualisation)
-
-#
-# class PairScreening(object):
-#     def __init__(self, settings):
-#         for key, val in settings.items():
-#             setattr(self, key, val)
-#
-#         self.schedule_obj = Schedule(settings)
-#         self.data_obj = Data(settings)
-#         self.sectors = self.data_obj.clusters
-#
-#         self.trading_dates = self.schedule_obj.trading_dates
-#         self.rebal_dates = self.schedule_obj.rebal_dates
-#         self.run()
-#
-#     def SampleCorrelation(self, X):
-#         return X.rolling(window=self.correlation_window, min_periods=self.correlation_window).corr()
-#
-#     def EWMCorrelation(self, X):
-#         return X.ewm(halflife=self.correlation_window, min_periods=self.correlation_window).corr()
-#
-#     def _ledoit_wolf_shrinkage(self, X, t0, t1):
-#         # Ledoit Shrinking framework using the Constant Correlation Model (2004)
-#         # prior is that all pairwise correlations are identical. Shrinkage matrix F is simply the covariance matrix implied by constant correl
-#
-#         X = X.loc[t0:t1].dropna(how="all", axis=1)
-#         S = X.cov()
-#         var_X = np.diag(S).reshape(-1, 1)
-#         std_X = np.sqrt(var_X)
-#         rho = X.corr()
-#
-#         rho_upper_triu = rho.where(np.triu(np.ones(rho.shape)).astype(np.bool))
-#         avg_rho = rho_upper_triu.stack().mean()
-#
-#         # prior covariance matrix (avg corr shrinks upper and lower values of covariance)
-#         F = avg_rho * std_X * std_X.T
-#         np.fill_diagonal(F, var_X)
-#
-#         F = pd.DataFrame(F, index=S.index, columns=S.columns)
-#
-#         U = self.shrink_factor * F + (1 - self.shrink_factor) * S
-#         shrunk_corr = U / (std_X * std_X.T)
-#         return shrunk_corr
-#
-#     def ShrunkCorrelation(self, X):
-#         sliding_windows = list(zip(self.trading_days - datetime.timedelta(self.correlation_window),  self.trading_days))
-#         corr_matrices = {t1: self._ledoit_wolf_shrinkage(X, t0, t1) for t0, t1 in sliding_windows}
-#         return corr_matrices
-#
-#     def _get_corr_matrix(self, sector):
-#
-#         stocks = self.data_obj.clusters[sector]
-#         price = self.data_obj.data[stocks]
-#
-#         r = np.log(price / price.shift(1))
-#         r = (r - r.rolling(self.correlation_window).mean())  # / r.expanding().std() # returns are standardised
-#         corr_matrices = getattr(self, self.pair_selection_method)(X=r)
-#         return corr_matrices
-#
-#     def _select_pairs(self, corr_matrix, epsilon=1e-2):
-#
-#         corr_matrix = corr_matrix.loc[self.rebal_dates]
-#
-#         # X = collection of corr matrices each day
-#         X = np.array([np.array(corr_matrix.xs(t)) for t in self.rebal_dates])
-#         # upper triangular matrix above the diagonal to keep unique pairwise corr
-#         U = np.triu(np.ones(X.shape[-2:]), k=1).astype(np.bool)
-#         A = X * U
-#
-#         A = pd.DataFrame(A.reshape(corr_matrix.shape), index=corr_matrix.index, columns=corr_matrix.columns)
-#
-#         B = A.stack()
-#         B = B[B>0]
-#         B.name="Correlation"
-#         B = pd.DataFrame(B)
-#
-#         # To reduce dimensionality, for each stock i, only consider a pair with stock j == max(corr(i,k))
-#         max_corr_per_pair = corr_matrix[corr_matrix < 1-epsilon].max(axis=1).dropna()
-#         max_corr_per_pair.name = "MaxPairWiseCorr1"
-#         max_corr_per_pair2 = max_corr_per_pair.copy()
-#         max_corr_per_pair2.name = "MaxPairWiseCorr2"
-#
-#         B = B.join(max_corr_per_pair, [B.index.get_level_values(0), B.index.get_level_values(1)], how="left").iloc[:,2:]
-#         B = B.join(max_corr_per_pair2, [B.index.get_level_values(0), B.index.get_level_values(2)], how="left").iloc[:,2:]
-#         B = B.query("Correlation==MaxPairWiseCorr1 or Correlation==MaxPairWiseCorr2")
-#
-#         # Selected pair is given by top quantile at each date
-#         lower_bound = B.groupby(B.index.get_level_values(0)).apply(lambda x: np.quantile(x, q=1 - self.correlation_quantile))
-#         lower_bound.name="LowerCorrBound"
-#
-#         B = B.join(lower_bound, B.index.get_level_values(0), how="left").iloc[:,1:]
-#
-#         # Expected selected number of pairs is of order N*q/2 since each stock can  be matched with another one
-#         B = B.query("Correlation>LowerCorrBound")
-#
-#         return B
-#
-#     def _aggregate(self, eligible_pairs):
-#         eligible_pairs = pd.concat([eligible_pairs[sector]["Correlation"] for sector in eligible_pairs], axis=0, keys=eligible_pairs)
-#         eligible_pairs = eligible_pairs.sort_index(level=1)
-#
-#         eligible_pairs = eligible_pairs.reset_index()
-#
-#         eligible_pairs["level_1"] = eligible_pairs["level_1"].dt.tz_localize(None)
-#         eligible_pairs.to_excel(f"{FILE_PATH}//strategies\\eligible_pairs.xlsx")
-#
-#     def run(self):
-#
-#         # step 1 - compute correlation matrices
-#         logging.info("Computing Corr Matrices...")
-#         corr_matrices = {sector: self._get_corr_matrix(sector) for sector in self.sectors}
-#
-#         logging.info("Selecting Pairs...")
-#         # step 2 - select pairs based on correlations
-#         eligible_pairs = {sector: self._select_pairs(corr_matrix) for sector, corr_matrix in corr_matrices.items()}
-#
-#         # step 3 - aggregate pairs from all sectors
-#         self._aggregate(eligible_pairs)
-
-class PairSelection(object):
+class MeanReversionSignal(object):
     def __init__(self, settings):
         for key, val in settings.items():
             setattr(self, key, val)
 
-        # FIXME pass to settings instead
-        self.schedule_obj = Schedule(settings)
-        self.data_obj = Data(settings)
-
-        self.trades_schedule = self.schedule_obj.trades_schedule
-        self.rebal_dates = self.schedule_obj.rebal_dates
+        self.trades_schedule = self.schedule.trades_schedule
+        self.rebal_dates = self.schedule.rebal_dates
 
         self.run()
 
-    def _load_eligible_pairs(self):
-        eligible_pairs = pd.read_excel(f"{FILE_PATH}//strategies//eligible_pairs.xlsx", index_col=[2,3,4])[["level_0", "Correlation"]].rename(dict(level_0="GIC_sector",), axis=1)
-        eligible_pairs.index.names = ["Date", "Pair1", "Pair2"]
-        self.eligible_pairs=eligible_pairs
+    def _load(self):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1,2,3])
 
     def _get_returns(self):
-        price = self.data_obj.data
+        price = self.data.price
         R = np.log(price / price.shift(1))
         R = (R - R.rolling(self.correlation_window).mean())  # / r.expanding().std() # returns are standardised
         self.R = R
 
-    def _get_rolling_OLS_beta(self,pair):
+    def rolling_OLS(self,pair):
         r = self.R[list(pair)].dropna()
         x, y = r[pair[1]], r[pair[0]]
         rols = RollingOLS(y, x, window=min(self.correlation_window, len(r)))
         rres = rols.fit(params_only=True)
         beta = rres.params.copy()[pair[1]]
-        return beta
+        return {pair:beta}
 
     def _get_hedge_ratio(self):
-        # unique_pairs = set(zip(self.eligible_pairs.Pair1, self.eligible_pairs.Pair2))
-        unique_pairs = set(zip(self.eligible_pairs.index.get_level_values(1), self.eligible_pairs.index.get_level_values(2)))
-
-        HR = {pair: self._get_rolling_OLS_beta(pair) for pair in unique_pairs}  # Make this FASTER - too slow
-        HR = pd.DataFrame(HR)
+        unique_pairs = set(zip(self.rho.index.get_level_values(1), self.rho.index.get_level_values(2)))
+        batch_size=int(len(unique_pairs)/self.n_parallel_jobs)
+        hedge_ratio_func = getattr(self, self.hedge_ratio_estimate)
+        res = Parallel(n_jobs=self.n_parallel_jobs, verbose=1, batch_size=batch_size)(delayed(hedge_ratio_func)(p) for p in unique_pairs)
+        res = dict(ChainMap(*res))
+        HR = pd.concat(res.values(), keys=res).dropna()
+        HR = HR.unstack().T
         self.HR = HR
 
     def _get_spread(self):
@@ -199,31 +60,60 @@ class PairSelection(object):
     def _get_mean_reversion_signal(self):
 
         # Z-score as EWM filter - e.g. short term trending signal on the spread
-        Z = self.S.ewm(halflife=self.correlation_window / 2).mean() / (self.S.ewm(halflife=self.correlation_window / 4).std())
-
+        Z = self.S.ewm(halflife=self.mean_reversion_window).mean() / (self.S.ewm(halflife=self.mean_reversion_window).std())
         # translate z-score into a signal with logistic transformation + band-stop filter controlling for weak dislocations
         d1 = Z * np.sqrt(252)  # z_spread ~N(0,1) - review scaling factor
         L = 2 * scipy.stats.norm.cdf(d1) - 1
         F = (1 - scipy.stats.norm.pdf(d1) / scipy.stats.norm.pdf(0))
-
         self.mr_signal = pd.DataFrame(L * F, index=self.S.index, columns=self.S.columns)
+
+    def _save(self):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        self.mr_signal.to_csv(f"{directory}\\mean_reversion_signal.csv")
+        self.HR.to_csv(f"{directory}\\HR.csv")
+
+    def run(self):
+        self._load()
+        self._get_returns()
+        self._get_hedge_ratio()
+        self._get_spread()
+        self._get_mean_reversion_signal()
+        self._save()
+
+class BuildStrategy(object):
+    def __init__(self, settings):
+        for key, val in settings.items():
+            setattr(self, key, val)
+
+        self.trades_schedule = self.schedule.trades_schedule
+        self.rebal_dates = self.schedule.rebal_dates
+
+        self.run()
+
+    def _load(self):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
+        self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
+        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1, 2, 3], parse_dates=True)
 
     def _get_portfolio(self):
         mr_signal = self.mr_signal.copy()
-        # signal.index = signal.index.tz_localize(None) #FIXME remove if not load fro m xl
         mr_signal = mr_signal.T.stack()
         mr_signal.name = "EntrySignal"
         mr_signal.index.names = ["Pair1", "Pair2", "Date"]
 
         HR = self.HR.copy()
-        # HR.index = HR.index.tz_localize(None)  # FIXME remove if not load fro m xl
         HR=HR.T.stack()
         HR.name = "HR"
         HR.index.names = ["Pair1", "Pair2", "Date"]
 
-        portfolio = self.eligible_pairs.copy()
+        portfolio = self.rho.copy()
         portfolio = portfolio.join(mr_signal, how="left")
         portfolio = portfolio.join(HR, how="left")
+        portfolio = portfolio[portfolio.HR.notna()]
+        portfolio = portfolio[portfolio.EntrySignal.notna()]
         self.portfolio=portfolio
 
     def _reindex_portfolio(self):
@@ -268,7 +158,7 @@ class PairSelection(object):
     def _get_prices(self):
         p = self.portfolio.copy()
 
-        s1 = self.data_obj.data.copy()
+        s1 = self.data.price.copy()
         s1 = s1.stack()
         s1.index.names = ["Date", "Pair1"]
         s1.name = "ClosePricePair1"
@@ -321,7 +211,7 @@ class PairSelection(object):
 
     def _add_entry_exit_costs(self):
         def _add_asset_volatility(p):
-            s1 = self.data_obj.data.copy()
+            s1 = self.data.price.copy()
             s1 = np.log(s1.div(s1.shift(1))).ewm(halflife=self.correlation_window).std()*np.sqrt(252)
             s1 = s1.stack()
             s1.index.names = ["Date", "Pair1"]
@@ -359,7 +249,7 @@ class PairSelection(object):
 
         I = pd.Series(index=[self.rebal_dates[0]], data=self.start_value)
 
-        # portfolio PnL logic accounts for overlapping trades with associated notionals
+        # portfolio PnL logic accounts for overlapping trades with associated notional
         # iterative logic vectorised at the rebal_freq level
         for t0, t1 in reb_dates:
             active_trades = p.query(f"Date>='{t0}' & Date<'{t1}'")
@@ -385,55 +275,37 @@ class PairSelection(object):
 
             I = pd.concat([I, I.loc[tm1] + pnl])
 
+        I = I.astype(float)
         self.I = I
 
         self.I.to_excel(f"{FILE_PATH}//strategies//index_test4.xlsx")
 
+    def _save(self):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        self.I.to_csv(f"{directory}\\index.csv")
+        # self.portfolio.to_csv(f"{directory}\\portfolio.csv")
+
     def _get_portfolio_stats(self):
         ts = self.I
-        r = np.log(ts.div(ts.shift(1)))
+        ts= ts.astype(float)
+
+        r = np.log(ts/ts.shift(1).dropna())
+
         sr = r.mean()/r.std()*np.sqrt(252)
         print(sr)
+        pass
 
     def run(self):
 
-        self._load_eligible_pairs()
-        self._get_returns()
-        self._get_hedge_ratio()
-        self._get_spread()
-        self._get_mean_reversion_signal()
-
+        self._load()
         self._get_portfolio()
         self._reindex_portfolio()
         self._size_portfolio()
+
         self._get_prices()
         self._get_pair_pnl()
         self._add_exit_conditions()
         self._add_entry_exit_costs()
         self._get_portfolio_pnl()
         self._get_portfolio_stats()
-
-# @st.cache_data
-def strategy_runner(settings):
-
-    schedule = scheduler.Schedule(settings)
-    settings.update(schedule=schedule)
-    data = data_processing.Data(settings)
-    settings.update(data=data)
-    correlations = correlation_estimate.CorrelationEstimator(settings)
-    settings.update(correlations=correlations)
-    mr_signal = strategy.MeanReversionSignal(settings)
-    portfolio = strategy.BuildStrategy(settings)
-
-def main():
-    # add something that checks enough data before computing corr
-    # plot SR function of window (e.g. weekly SR)
-    # add costs as func of vol
-
-    # correlations computed once at start
-    # and then loaded by all strategies ??
-
-    strategy_runner(settings.test_strategy)
-
-if __name__ == '__main__':
-    main()
+        self._save()

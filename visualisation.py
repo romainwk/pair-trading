@@ -28,9 +28,10 @@ class WebApp(object):
         # df.plot(ax=axes)
         st.pyplot(fig)
 
-        # double quantile sorting
+        # triple quantile sorting
         # # To reduce dimensionality, for each stock i, only consider a pair with stock j in the top quantile of its pairwise correlation
         # # Selected pair is given by top quantile among the group at each date
+        # selected pairs to test for MR: top quantile among all groups each day
         print("")
         st.write("This is a band-stop filter on the z-score")
 

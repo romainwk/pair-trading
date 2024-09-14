@@ -16,11 +16,11 @@ class Data(object):
         self.run()
 
     def _load(self):
-        data = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)
-        data.index = data.index.tz_localize(None)
-        data = data.reindex(self.schedule.training_dates)
+        price = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)
+        price.index = price.index.tz_localize(None)
+        price = price.reindex(self.schedule.training_dates)
         self.classification = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_classification.csv")
-        self.data = data
+        self.price = price
 
     def _create_clusters(self):
         classification = self.classification[self.cluster_by]

@@ -9,7 +9,6 @@ import logging
 from joblib import Parallel, delayed
 from collections import ChainMap
 
-
 class CorrelationEstimator(object):
     def __init__(self, settings):
         for key, val in settings.items():
@@ -132,7 +131,7 @@ class CorrelationEstimator(object):
         print(cluster)
         logging.info(f"computing correlation for {cluster}")
         stocks = self.data.clusters[cluster]
-        price = self.data.data[stocks].ffill()
+        price = self.data.price[stocks].ffill()
 
         X = np.log(price / price.shift(1))
         X = (X - X.rolling(self.correlation_window).mean())# center returns
@@ -143,17 +142,19 @@ class CorrelationEstimator(object):
         # self._save(cluster, R)
         return {cluster: R}
 
-    # def _save(self, cluster, R):
-    #     directory = f"{FILE_PATH}\\strategies\\correlation_estimation\\{self.correlation_estimate}_{self.correlation_window}"
-    #     if not os.path.exists(directory):
-    #         os.makedirs(directory)
-    #     R.to_csv(f"{directory}\\{cluster}.csv")
+    def _filter_across_clusters(self, rho):
+        top_quantile =rho["Correlation"].groupby("Date").apply(lambda x: np.quantile(x, q=1 - self.correlation_quantile))
+        top_quantile.name="TopQuantileCorrAllClusters"
 
-    def _save(self, R):
-        directory = f"{FILE_PATH}\\strategies\\correlation_estimation"
+        rho = rho.join(top_quantile, on="Date")
+        rho = rho.query("Correlation>=TopQuantileCorrAllClusters")
+        return rho
+
+    def _save(self, rho):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
-        R.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
+        rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
 
     def run(self):
         # [self._get_correlation_cluster(c) for c in self.clusters]
@@ -161,10 +162,11 @@ class CorrelationEstimator(object):
 
         res = Parallel(n_jobs=self.n_parallel_jobs)(delayed(self._get_correlation_cluster)(c) for c in self.clusters)
         res = dict(ChainMap(*res))
-        R = pd.concat(res.values(), keys=res)
-        self._save(R)
-        print("")
-        #
+        rho = pd.concat(res.values(), keys=res)
+        rho.index.names = [self.cluster_by, "Date", "Pair1", "Pair2"]
+        rho = self._filter_across_clusters(rho)
+        rho = rho.sort_values(by=["Date", self.cluster_by])
+        self._save(rho)
 
     # def _select_pairs(self, corr_matrix, epsilon=1e-2):
     #
