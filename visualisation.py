@@ -19,6 +19,9 @@ class WebApp(object):
 
         # stocks are divided into sectors (GICS) to reduce dimensionality / spurious corr
 
+        # universe of eligible pairs are identified by means of long term correlation among each sector group
+
+
         st.write("This is a band-stop filter on the z-score")
 
         fig, axes = plt.subplots(figsize=(8, 4))

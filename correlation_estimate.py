@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
 from settings import FILE_PATH
+from sklearn.covariance import OAS, LedoitWolf
+import datetime
+from numpy.lib.stride_tricks import sliding_window_view
 
 class CorrelationEstimator(object):
     def __init__(self, settings):
@@ -13,48 +16,73 @@ class CorrelationEstimator(object):
 
         self.run()
 
-    def SampleCorrelation(self, X):
-        return X.rolling(window=self.correlation_window, min_periods=self.correlation_window).corr()
+    def SampleCorrelation(self, M):
+        # return X.rolling(window=self.correlation_window, min_periods=self.correlation_window).corr()
+        R = {t: X.corr() for t, X in M.items()}
+        return R
 
-    def EWMCorrelation(self, X):
-        return X.ewm(halflife=self.correlation_window, min_periods=self.correlation_window).corr()
+    # def EWMCorrelation(self, X):
+    #     return X.ewm(halflife=self.correlation_window, min_periods=self.correlation_window).corr()
 
-    def _ledoit_wolf_shrinkage(self, X, t0, t1):
-        # Ledoit Shrinking framework using the Constant Correlation Model (2004)
-        # prior is that all pairwise correlations are identical. Shrinkage matrix F is simply the covariance matrix implied by constant correl
+    def _handle_missing_data(self, A):
+        A = A.dropna(how="all", axis=1)
+        A = A.where(A.notna(), A.median(), axis=1) # estimate remaining NAs with median over obs window
+        return A
 
-        X = X.loc[t0:t1].dropna(how="all", axis=1)
-        S = X.cov()
-        var_X = np.diag(S).reshape(-1, 1)
-        std_X = np.sqrt(var_X)
-        rho = X.corr()
+    def _gen_sliding_windows(self, X):
+        sliding_windows = list(zip([t - datetime.timedelta(self.correlation_window) for t in self.rebal_dates],  self.rebal_dates))
+        M = {t1: X.loc[t0:t1] for t0, t1 in sliding_windows}
+        M = {t1: self._handle_missing_data(A) for t1, A in M.items()}
+        M = {t: A for t, A in M.items() if len(A.columns)!=0}
+        return M
 
-        rho_upper_triu = rho.where(np.triu(np.ones(rho.shape)).astype(np.bool))
-        avg_rho = rho_upper_triu.stack().mean()
+    def LinearShrinkage(self, M):
+        # def ledoit_wolf_shrinkage(A):
+        #       '''Homemade estimation discarded since supported by scikit learn'''
+        #     # Ledoit Shrinking framework using the Constant Correlation Model (2004)
+        #     # prior is that all pairwise correlations are identical. Shrinkage matrix F is simply the covariance matrix implied by constant correl
+        #     A = A.dropna(how="all", axis=1)
+        #     S = A.cov()
+        #     var_X = np.diag(S).reshape(-1, 1)
+        #     std_X = np.sqrt(var_X)
+        #     rho = X.corr()
+        #
+        #     rho_upper_triu = rho.where(np.triu(np.ones(rho.shape)).astype(np.bool))
+        #     avg_rho = rho_upper_triu.stack().mean()
+        #
+        #     # prior covariance matrix (avg corr shrinks upper and lower values of covariance)
+        #     F = avg_rho * std_X * std_X.T
+        #     np.fill_diagonal(F, var_X)
+        #
+        #     F = pd.DataFrame(F, index=S.index, columns=S.columns)
+        #
+        #     U = self.shrink_factor * F + (1 - self.shrink_factor) * S
+        #     shrunk_corr = U / (std_X * std_X.T)
+        #     return shrunk_corr
 
-        # prior covariance matrix (avg corr shrinks upper and lower values of covariance)
-        F = avg_rho * std_X * std_X.T
-        np.fill_diagonal(F, var_X)
+        def ledoit_wolf_shrinkage(X):
+            lw = LedoitWolf(store_precision=False, assume_centered=True)
+            lw.fit(X)
+            S_hat = lw.covariance_
+            V = np.diag(S_hat).reshape(-1, 1)
+            sqrt_V = np.sqrt(V)
+            rho = pd.DataFrame(S_hat)/(sqrt_V*sqrt_V.T)
+            return rho
 
-        F = pd.DataFrame(F, index=S.index, columns=S.columns)
+        R = {t: ledoit_wolf_shrinkage(X) for t, X in M.items()}
 
-        U = self.shrink_factor * F + (1 - self.shrink_factor) * S
-        shrunk_corr = U / (std_X * std_X.T)
-        return shrunk_corr
-
-    def ShrunkCorrelation(self, X):
-        sliding_windows = list(zip(self.trading_days - datetime.timedelta(self.correlation_window),  self.trading_days))
-        corr_matrices = {t1: self._ledoit_wolf_shrinkage(X, t0, t1) for t0, t1 in sliding_windows}
-        return corr_matrices
+        return R
 
     def _get_corr_matrix(self, sector):
 
         stocks = self.data.clusters[sector]
-        price = self.data.data[stocks]
+        price = self.data.data[stocks].ffill()
 
-        r = np.log(price / price.shift(1))
-        r = (r - r.rolling(self.correlation_window).mean())  # / r.expanding().std() # returns are standardised
-        corr_matrices = getattr(self, self.pair_selection_method)(X=r)
+        X = np.log(price / price.shift(1))
+        X = (X - X.rolling(self.correlation_window).mean())# center returns
+        M = self._gen_sliding_windows(X)
+
+        corr_matrices = getattr(self, self.pair_selection_method)(M)
         return corr_matrices
 
     def _select_pairs(self, corr_matrix, epsilon=1e-2):

@@ -3,7 +3,7 @@ import numpy as np
 
 FILE_PATH = r'C:/Users/Romain/PycharmProjects/pythonProject'
 
-correlation_settings = dict(pair_selection_method="SampleCorrelation",  # SampleCorrelation, EWMCorrelation, LinearShrinkage, NonLinearShrinkage
+correlation_settings = dict(pair_selection_method="LinearShrinkage",  # SampleCorrelation, EWMCorrelation, LinearShrinkage, NonLinearShrinkage
                             correlation_window=120,  # sliding window or half-life in the case of EWMCorrelation
                             shrink_factor=0.25,  # could be automatically selected by x-validation
                             )
