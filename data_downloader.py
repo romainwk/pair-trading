@@ -3,7 +3,6 @@ import requests
 import yfinance as yf
 import datetime
 import pandas as pd
-LOCAL_PATH = r'C:\Users\Romain\Desktop\2024_applications\applications\BlueCrest\project\data'
 
 class DownloadIndexDataYahoo(object):
 

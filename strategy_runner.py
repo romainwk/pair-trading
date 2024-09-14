@@ -3,7 +3,6 @@ import numpy as np
 # from pandas.tseries.holiday import get_calendar, HolidayCalendarFactory, GoodFriday
 # from datetime import datetime
 import scipy
-import pandas_market_calendars as mcal
 import pandas as pd
 import statsmodels.api as sm
 from pydeck import settings
@@ -11,54 +10,20 @@ from statsmodels.regression.rolling import RollingOLS
 import matplotlib.pyplot as plt
 import itertools
 import logging
-import streamlit as st
-FILE_PATH = r'C:/Users/Romain/PycharmProjects/pythonProject'
 
-class Schedule(object):
-    def __init__(self, settings):
-        for key, val in settings.items():
-            setattr(self, key, val)
-        self.run()
+import scheduler
+import settings
+import data_processing
+import correlation_estimate
+import visualisation
+from settings import FILE_PATH
 
-    def _get_good_trading_dates(self):
-        cal = mcal.get_calendar(self.trading_calendar)
-        self.trading_dates = cal.valid_days(start_date=self.start_date, end_date=self.end_date)
-        # expand dataset for initial estimation
-        self.training_dates = cal.valid_days(start_date=self.start_date - datetime.timedelta(days=self.correlation_window*4), end_date=self.end_date)
-
-        self.trading_dates = self.trading_dates.tz_localize(None)
-        self.training_dates = self.training_dates.tz_localize(None)
-
-    def _get_rebal_dates(self):
-        self.rebal_dates = [t for t, i in zip(self.trading_dates, range(len(self.trading_dates))) if i%self.rebal_frequency==0]
-
-    def _get_trades_schedule(self):
-        '''dict of dates during which each trade is alive (up to max_holding_period)'''
-        l = list(self.trading_dates)
-        i_start = [l.index(t) for t in self.rebal_dates]
-        i_end = [i + self.max_holding_period for i in i_start]
-        self.trades_schedule = {t: l[i:j] for t, i, j in zip(self.rebal_dates, i_start, i_end)}
-
-    def run(self):
-        self._get_good_trading_dates()
-        self._get_rebal_dates()
-        self._get_trades_schedule()
-
-class Data(object):
-    def __init__(self, settings):
-        for key, val in settings.items():
-            setattr(self, key, val)
-        self.schedule_obj = Schedule(settings)
-        self.run()
-
-    def run(self):
-        data = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)
-        data.index =data.index.tz_localize(None)
-        sectors = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_sector.csv", index_col=0)
-        unique_sectors = sectors["GIC_sector"].unique()
-
-        self.clusters = {s: sorted(list(sectors[sectors.GIC_sector == s].index)) for s in unique_sectors}
-        self.data=data.reindex(self.schedule_obj.training_dates)
+from importlib import reload
+reload(scheduler)
+reload(settings)
+reload(data_processing)
+reload(visualisation)
+reload(correlation_estimate)
 
 class PairScreening(object):
     def __init__(self, settings):
@@ -445,85 +410,30 @@ class PairSelection(object):
         self._get_portfolio_pnl()
         self._get_portfolio_stats()
 
-@st.cache_data
+# @st.cache_data
 def strategy_runner(settings):
+
+    schedule = scheduler.Schedule(settings)
+    settings.update(schedule=schedule)
+    data = data_processing.Data(settings)
+    settings.update(data=data)
+
+    correlation_estimate.CorrelationEstimator(settings)
+
+    print("")
     # PairScreening(settings)
-    PairSelection(settings)
+    # PairSelection(settings)
 
-class WebApp(object):
-    def __init__(self):
-        pass
-
-        self.run()
-
-    def summary(self):
-        st.write("Text that explains the approach being taken")
-
-    def methodology(self):
-        st.write("This is a band-stop filter on the z-score")
-
-        fig, axes = plt.subplots(figsize=(8, 4))
-
-        axes.set_title("Filter")
-
-        domain = np.arange(-4, 4, 0.10)
-        L = pd.Series({d1: (2 * scipy.stats.norm.cdf(d1) - 1) for d1 in domain})
-        F = pd.Series({d1: (1 - scipy.stats.norm.pdf(d1) / scipy.stats.norm.pdf(0)) for d1 in domain})
-        df = pd.DataFrame(dict(L=L, F=F, S=L * F))
-        df.plot(ax=axes)
-        st.pyplot(fig)
-
-    def results(self):
-        st.write("Showing here the main results of the strat")
-
-        st.write("This is the backtesting results")
-        df = pd.read_excel(f"{FILE_PATH}//strategies//index_test4.xlsx", index_col=0, parse_dates=True)
-        st.line_chart(df)
-
-    def limitations(self):
-        st.write("No access to historical comp of indices \n "
-                 "Transaction cost v rough"
-                 "")
-
-    def run(self):
-
-        pg = st.navigation([st.Page(self.summary),
-                            st.Page(self.methodology),
-                            st.Page(self.results),
-                            st.Page(self.limitations)
-                            ],
-                           )
-
-        pg.run()
 
 def main():
     # add something that checks enough data before computing corr
     # plot SR function of window (e.g. weekly SR)
     # add costs as func of vol
 
-    strategy_settings = dict(start_date=datetime.date(2010,1,1),
-                             end_date= datetime.date(2024,9,1),
-                             trading_calendar="NYSE",
-                             index_universe="S&P500",
-                             pair_selection_method="EWMCorrelation", # SampleCorrelation, EWMCorrelation, LinearShrinkage, NonLinearShrinkage
-                             shrink_factor=0.25, # could be automatically selected by x-validation
-                             correlation_quantile=0.10, # top (1-q) pairs pass the PairSelection screen
-                             correlation_window=120, # sliding window or half-life in the case of EWMCorrelation
+    # correlations computed once at start
+    # and then loaded by all strategies ??
 
-                             rebal_frequency=5, # how frequently a new set of pairs is considered
-                             max_holding_period=40,
-                             profit_taking=None,
-                             stop_loss=None,
-                             start_value=100,
-
-                             notional_sizing="TargetNotional", # TargetNotional, TargetVol
-                             leverage=1, # gross leverage of L/S strategy if sizing by TargetNotional
-                             target_vol_level=0.05, # drives leverage of the L/S strategy if sizing by TargetVol
-
-                             transaction_cost=0.1*1/np.sqrt(252), # multiple of running std. e.g. for a stock running 15% vol annualised, charges 10 bps entry/exit (one way)
-                             )
-
-    strategy_runner(strategy_settings)
+    strategy_runner(settings.test_strategy)
     # WebApp()
 
 if __name__ == '__main__':
