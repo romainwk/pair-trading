@@ -9,3 +9,4 @@ statsmodels
 matplotlib
 scikit-learn
 plotly
+pykalman
