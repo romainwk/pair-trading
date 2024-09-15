@@ -12,7 +12,8 @@ def get_settings(params):
                            hedge_ratio_estimate="KalmanFilter", # RollingOLS, KalmanFilter
                            mean_reversion_window=60,
                            select_top_n_stocks=10, # optional param, select top n stocks wrt mean_reversion signal at each rebal date
-                           min_signal_threshold=None, # optional param, hard thresholding on the mean-reversion signal
+                           signal_threshold_entry=None, # optional param, hard thresholding on the mean-reversion signal
+                           signal_threshold_exit=0, #drives exit
                             )
 
     strategy_settings = dict(strategy_name="base_strategy",
@@ -21,13 +22,13 @@ def get_settings(params):
                              trading_calendar="NYSE",
                              index_universe="S&P500",
                              rebal_frequency=5,  # how frequently a new set of pairs is considered
-                             max_holding_period=40,
+                             max_holding_period=60,
                              profit_taking=None,
                              stop_loss=None,
                              start_value=100,
 
                              notional_sizing="TargetNotional",  # TargetNotional, TargetVol
-                             leverage=1,  # gross leverage of L/S strategy if sizing by TargetNotional
+                             leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
                              target_vol_level=0.05,  # drives leverage of the L/S strategy if sizing by TargetVol
 
                              transaction_cost=0.1 * 1 / np.sqrt(252)*0,
@@ -50,12 +51,33 @@ def get_settings(params):
 
 iterations1 = [dict(correlation_window=int(w),
                     mean_reversion_window=int(w/2),
-                    folder="window_sensi",
+                    folder="sensi_to_window_length",
                     strategy_name=f"W={w}") for w in np.arange(90,250,10)]
 
-iterations2 = [dict(correlation_estimate=s, strategy_name=f"W_L_120_W_S_60_Rho_{s}") for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"]]
+iterations2 = [dict(correlation_estimate=s,
+                    strategy_name=f"{s}",
+                    correlation_window=120,
+                    mean_reversion_window=60,
+                    folder="sensi_to_correlation_estimator",
+                    ) for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"]]
 
-strategies_to_run = [get_settings(params) for params in iterations1]
+iterations3 = [dict(hedge_ratio_estimate=s,
+                    strategy_name=f"{s}",
+                    correlation_window=120,
+                    mean_reversion_window=60,
+                    folder="sensi_to_hr_estimator",
+                    ) for s in ["RollingOLS", "KalmanFilter"]]
+
+iterations4 = [dict(correlation_quantile=q,
+                    strategy_name=f"q={int(q*100)}",
+                    correlation_window=120,
+                    mean_reversion_window=60,
+                    folder="sensi_to_quantile_threshold",
+                    ) for q in [0.25,0.15,0.10,0.05,0.01]]
+
+iterations = iterations1+iterations2+iterations3+iterations4
+# iterations= [iterations1[4]] #FIXME remove
+strategies_to_run = [get_settings(params) for params in iterations]
 
 # def main():
 #     iterations1 = [

@@ -83,12 +83,12 @@ class MeanReversionSignal(object):
     def _get_mean_reversion_signal(self):
 
         # Z-score as EWM filter - e.g. short term trending signal on the spread
-        Z = self.S.ewm(halflife=self.mean_reversion_window).mean() / (self.S.ewm(halflife=self.mean_reversion_window).std())
+        Z = self.S.ewm(halflife=self.mean_reversion_window).mean() / (self.S.ewm(halflife=0.5*self.mean_reversion_window).std())
         # translate z-score into a signal with logistic transformation + band-stop filter controlling for weak dislocations
         d1 = Z * np.sqrt(252)  # z_spread ~N(0,1) - review scaling factor
         L = 2 * scipy.stats.norm.cdf(d1) - 1
         F = (1 - scipy.stats.norm.pdf(d1) / scipy.stats.norm.pdf(0))
-        self.mr_signal = pd.DataFrame(L * F, index=self.S.index, columns=self.S.columns)
+        self.mr_signal = pd.DataFrame(L*F, index=self.S.index, columns=self.S.columns)
 
     def _save(self):
         directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
@@ -117,22 +117,23 @@ class BuildStrategy(object):
         self.rho = self.correlations.rho
         self.run()
 
-    # def _load(self):
-    #     directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
-    #     self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
-    #     self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
-    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1, 2, 3], parse_dates=True)
+    def _load(self):
+        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
+        self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
+        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
+
+    def _process_frame(self, df, name):
+        x = df.copy()
+        x = x.T.stack()
+        x.name = name
+        x.index.names = ["Pair1", "Pair2", "Date"]
+        return x
 
     def _get_portfolio(self):
-        mr_signal = self.mr_signal.copy()
-        mr_signal = mr_signal.T.stack()
-        mr_signal.name = "EntrySignal"
-        mr_signal.index.names = ["Pair1", "Pair2", "Date"]
 
-        HR = self.HR.copy()
-        HR=HR.T.stack()
-        HR.name = "HR"
-        HR.index.names = ["Pair1", "Pair2", "Date"]
+        mr_signal = self._process_frame(df=self.mr_signal, name="EntrySignal")
+        HR = self._process_frame(df=self.HR, name="HR")
 
         portfolio = self.rho.copy()
         portfolio = portfolio.join(mr_signal, how="left")
@@ -144,8 +145,9 @@ class BuildStrategy(object):
         portfolio["EntrySignalRank"] = portfolio["AbsEntrySignal"].groupby(portfolio.index.get_level_values(0)).rank(ascending=False)
         if self.select_top_n_stocks:
             portfolio = portfolio.query(f"EntrySignalRank<={self.select_top_n_stocks}")
-        if self.min_signal_threshold:
-            portfolio["EntrySignal"] = portfolio["EntrySignal"].where(portfolio["AbsEntrySignal"] > self.min_signal_threshold, 0)
+        if self.signal_threshold_entry:
+            condition = portfolio["EntrySignal"].copy().where(portfolio["AbsEntrySignal"] > self.signal_threshold_entry, 0)
+            portfolio.loc[:,"EntrySignal"] = condition
         self.portfolio=portfolio
         self.portfolio_composition = self.portfolio
 
@@ -226,13 +228,17 @@ class BuildStrategy(object):
 
     def _add_exit_conditions(self):
         p = self.portfolio.copy()
+        mr_signal = self._process_frame(df=self.mr_signal, name="RunningSignal")
+
+        p = p.join(mr_signal, how="left")
+
         if not self.profit_taking: self.profit_taking = np.inf
         if not self.stop_loss: self.stop_loss = np.inf
-
+        p["ExitSignal"] = (p.RunningSignal.abs()<self.signal_threshold_exit).copy()
         p["MaxHoldingPeriod"] = p.Pair != p.Pair.shift(-1)
         p["ProfitTaking"] = p["CumPairPnLHPeriod"] > self.profit_taking
         p["StopLoss"] = p["CumPairPnLHPeriod"] < -self.stop_loss
-        p["Exit"] = p["MaxHoldingPeriod"] | p["ProfitTaking"] | p["StopLoss"]
+        p["Exit"] = p["ExitSignal"] | p["MaxHoldingPeriod"] | p["ProfitTaking"] | p["StopLoss"]
         p["DaysPostExit"] = p[["RollNumber", "Pair", "Exit"]].groupby(["Pair", "RollNumber"]).cumsum()
         p["ExitDate"] = p["DaysPostExit"]==1
         p["Exited"] = p["DaysPostExit"].where(p["DaysPostExit"] == 0, 1)

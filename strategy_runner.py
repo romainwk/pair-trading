@@ -3,17 +3,8 @@ from pydeck import settings
 import scheduler
 import data_processing
 import correlation_estimate
-# import visualisation
 import strategy
 import settings
-
-# from importlib import reload
-# reload(scheduler)
-# reload(settings)
-# reload(data_processing)
-# reload(correlation_estimate)
-# reload(strategy)
-# reload(visualisation)
 
 # @st.cache_data
 def strategy_runner(settings):

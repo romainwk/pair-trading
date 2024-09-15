@@ -160,18 +160,13 @@ class CorrelationEstimator(object):
         rho.index= rho.index.droplevel(0)
         return rho
 
-    def _save(self, rho):
+    def _save(self):
         directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
 
     def run(self):
-        # [self._get_correlation_cluster(c) for c in self.clusters]
-        # R = {c: self._get_correlation_cluster(c) for c in self.clusters}
-        # self.clusters=["Industrials"] #FIXME remove
-        # self.n_parallel_jobs = 1
-
         res = Parallel(n_jobs=self.n_parallel_jobs)(delayed(self._get_correlation_cluster)(c) for c in self.clusters)
         res = dict(ChainMap(*res))
         rho = pd.concat(res.values(), keys=res)

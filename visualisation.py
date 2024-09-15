@@ -8,9 +8,9 @@ import settings
 import plotly.express as px
 import plotly.graph_objects as go
 
-def lineplot(df, default):
+def lineplot(df, default, key):
     clist = df.columns.tolist()
-    strategies = st.multiselect("Select strategy", clist, default =default)
+    strategies = st.multiselect("Select strategy", clist, default =default, key=key)
     st.text("You selected: {}".format(", ".join(strategies)))
     dfs = {strat: df[strat] for strat in strategies}
     fig = go.Figure()
@@ -96,25 +96,59 @@ class WebApp(object):
 
         st.header("Parameter Sensitivity")
 
+        st.markdown(
+            r"""
+            Exploring below the pair-trading strategy sensitivity to a range of parameters:
+            - Rolling window $w$ used to estimate pairwise correlations
+            - Model used to estimate the covariance matrix 
+            - Model used to estimate $\beta$
+            """
+        )
+        # Rolling window
         st.subheader(r"Sensitivity to rolling window " + r"$w$")
         st.write(f"Sensitivity to the window " + r"$w$" + " used to estimate the correlation")
 
         df = get_df(iteration=settings.iterations1)
-        lineplot(df, default=df.columns[::4])
+        lineplot(df, default=df.columns[::4],key ="Window")
 
         perf_metrics = performance_metrics(df)
-        lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"])
+        lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"],key ="Window Perf Metrics")
         st.dataframe(perf_metrics)
 
+        # Covariance matrix
+        st.subheader(r"Sensitivity to the covariance matrix estimation " + r"$\Sigma$")
+        st.write(f"Sensitivity to the model used to estimate the var-covar matrix " + r"$\Sigma$")
+
+        df = get_df(iteration=settings.iterations2)
+        lineplot(df, default=df.columns,key ="Covariance Matrix")
+
+        perf_metrics = performance_metrics(df)
+        lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"],key ="Covariance Matrix Metrics")
+        st.dataframe(perf_metrics)
+
+        # beta estimation
+        st.subheader(r"Sensitivity to the hedge ratio " + r"$\beta^{HR}$")
+        st.write(f"Sensitivity to the model used to estimate the hedge ratio " + r"$\beta^{HR}$")
+
+        df = get_df(iteration=settings.iterations4)
+        lineplot(df, default=df.columns, key="Hedge Ratio")
+
+        perf_metrics = performance_metrics(df)
+        # lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"], key="Hedge Ratio Metrics")
+        st.dataframe(perf_metrics)
 
     def methodology(self):
 
+        # prices adjusted for dividends and splits
 
         # universe of eligible pairs are identified by means of long term correlation among each industry group
         df = pd.read_csv(f"{FILE_PATH}\\data\\S&P500_classification.csv", index_col=0)
 
         # stocks are divided into sectors (GICS) to reduce dimensionality / spurious corr
         x = df["GIC_sub_industry"].groupby(df.GIC_sub_industry).count()
+
+        # better to estimate correlations because of multiple testing ?
+        # list all exit conditions
 
         fig, axes = plt.subplots(figsize=(25, 4))
         x.sort_values(ascending=False).plot.bar(ax=axes)
