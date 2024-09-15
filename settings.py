@@ -35,7 +35,7 @@ def get_settings(params):
                              # multiple of running std. e.g. for a stock running 15% vol annualised, charges 10 bps entry/exit (one way)
                              )
 
-    computation_settings = dict(n_parallel_jobs=16,
+    computation_settings = dict(n_parallel_jobs=8,
                                 debug=False,
                                 folder="base",
                                 )
