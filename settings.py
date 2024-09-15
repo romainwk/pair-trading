@@ -1,7 +1,7 @@
 import datetime
 import numpy as np
 
-FILE_PATH = r'C:/Users/Romain/PycharmProjects/pythonProject'
+# FILE_PATH = r'C:/Users/Romain/PycharmProjects/pythonProject'
 
 def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry

@@ -1,6 +1,6 @@
 from streamlit import columns
 
-from settings import FILE_PATH
+# from settings import FILE_PATH
 import pandas as pd
 import numpy as np
 from statsmodels.regression.rolling import RollingOLS
@@ -94,7 +94,7 @@ class MeanReversionSignal(object):
         self.mr_signal = pd.DataFrame(L*F, index=self.S.index, columns=self.S.columns)
 
     def _save(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
+        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.mr_signal.to_csv(f"{directory}\\mean_reversion_signal.csv")
@@ -122,7 +122,7 @@ class BuildStrategy(object):
             self.run()
 
     def _load(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
+        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
         self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
         self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
         self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
@@ -323,7 +323,7 @@ class BuildStrategy(object):
         self.I = I
 
     def _save(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
+        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.I.to_csv(f"{directory}\\index.csv")

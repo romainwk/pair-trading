@@ -1,4 +1,4 @@
-from settings import FILE_PATH
+# from settings import FILE_PATH
 import pandas as pd
 import streamlit as st
 
@@ -17,10 +17,10 @@ class Data(object):
             self.run()
 
     def _load(self):
-        price = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)
+        price = pd.read_csv(f"data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)
         price.index = price.index.tz_localize(None)
         price = price.reindex(self.schedule.training_dates)
-        self.classification = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_classification.csv")
+        self.classification = pd.read_csv(f"data//{self.index_universe}_classification.csv")
         self.price = price
 
     def _create_clusters(self):
