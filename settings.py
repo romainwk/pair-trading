@@ -98,16 +98,6 @@ base = [dict(folder="base",
              strategy_name="baseline",
              debug=False,
              )]
-# test = [dict(correlation_window=120,
-#             mean_reversion_window=60,
-#             max_holding_period=60,
-#             rebal_frequency=1,
-#             folder="test",
-#             strategy_name=f"test",
-#             debug=False,
-#             signal_threshold_entry=0.75,
-#
-#              )]
 
 iterations=base
 # for i in range(2,9):
@@ -115,11 +105,3 @@ iterations=base
 
 strategies_to_run = [get_settings(params) for params in iterations]
 
-# def main():
-#     iterations1 = [
-#         dict(correlation_window=w, mean_reversion_window=int(w / 2), strategy_name=f"W_L_{w}_W_S_{int(w / 2)}") for w in
-#         np.arange(90, 250, 10)]
-#     [get_settings(params) for params in iterations1]
-#
-# if __name__ == '__main__':
-#     main()
