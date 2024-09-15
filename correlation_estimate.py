@@ -161,7 +161,7 @@ class CorrelationEstimator(object):
         return rho
 
     def _save(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}\\"
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
@@ -173,4 +173,4 @@ class CorrelationEstimator(object):
         rho.index.names = [self.cluster_by, "Date", "Pair1", "Pair2"]
         rho = self._filter_across_clusters(rho)
         self.rho= self._format(rho)
-        if self.export_data: self._save()
+        if self.debug: self._save()

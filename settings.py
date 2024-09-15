@@ -7,10 +7,10 @@ def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry
                            min_stock_per_cluster=5,
                            correlation_estimate="EWMCorrelation",  # SampleCorrelation, EWMCorrelation, LedoitWolfShrinkage, OracleApproximatingShrinkage
-                           correlation_window=120,  # sliding window or half-life in the case of EWMCorrelation
+                           correlation_window=90,  # sliding window or half-life in the case of EWMCorrelation
                            correlation_quantile=0.10,  # top (1-q) pairs pass the correlation screen
                            hedge_ratio_estimate="KalmanFilter", # RollingOLS, KalmanFilter
-                           mean_reversion_window=60,
+                           mean_reversion_window=45,
                            select_top_n_stocks=10, # optional param, select top n stocks wrt mean_reversion signal at each rebal date
                            signal_threshold_entry=None, # optional param, hard thresholding on the mean-reversion signal
                            signal_threshold_exit=0, #drives exit
@@ -22,7 +22,7 @@ def get_settings(params):
                              trading_calendar="NYSE",
                              index_universe="S&P500",
                              rebal_frequency=5,  # how frequently a new set of pairs is considered
-                             max_holding_period=60,
+                             max_holding_period=10,
                              profit_taking=None,
                              stop_loss=None,
                              start_value=100,
@@ -36,7 +36,7 @@ def get_settings(params):
                              )
 
     computation_settings = dict(n_parallel_jobs=16,
-                                export_data=False,
+                                debug=False,
                                 folder="base",
                                 )
     strategy={**signal_settings,
@@ -52,31 +52,66 @@ def get_settings(params):
 iterations1 = [dict(correlation_window=int(w),
                     mean_reversion_window=int(w/2),
                     folder="sensi_to_window_length",
-                    strategy_name=f"W={w}") for w in np.arange(90,250,10)]
+                    strategy_name=f"W={w}") for w in np.arange(20,250,10)]
 
 iterations2 = [dict(correlation_estimate=s,
                     strategy_name=f"{s}",
-                    correlation_window=120,
-                    mean_reversion_window=60,
                     folder="sensi_to_correlation_estimator",
                     ) for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"]]
 
 iterations3 = [dict(hedge_ratio_estimate=s,
                     strategy_name=f"{s}",
-                    correlation_window=120,
-                    mean_reversion_window=60,
                     folder="sensi_to_hr_estimator",
                     ) for s in ["RollingOLS", "KalmanFilter"]]
 
 iterations4 = [dict(correlation_quantile=q,
                     strategy_name=f"q={int(q*100)}",
-                    correlation_window=120,
-                    mean_reversion_window=60,
                     folder="sensi_to_quantile_threshold",
-                    ) for q in [0.25,0.15,0.10,0.05,0.01]]
+                    ) for q in [0.25,0.15,0.10,0.05]]
 
-iterations = iterations1+iterations2+iterations3+iterations4
-# iterations= [iterations1[4]] #FIXME remove
+iterations5 = [dict(rebal_frequency=w,
+                    strategy_name=f"Rebal Freq={int(w)}",
+                    folder="sensi_to_rebal_freq",
+                    ) for w in list(range(5,35,5))]
+
+iterations6 = [dict(max_holding_period=w,
+                    strategy_name=f"Max Holding Period={int(w)}",
+                    folder="sensi_to_holding_period",
+                    ) for w in [5] + list(range(10,90,10))]
+
+iterations7 = [dict(profit_taking=x,
+                    strategy_name=f"Profit Taking Threshold={int(x*100)}%",
+                    folder="sensi_to_profit_taking",
+                    ) for x in [0.025,0.05,0.075,0.10]]
+
+iterations8 = [dict(stop_loss=x,
+                    strategy_name=f"Stop Loss Threshold={int(x*100)}%",
+                    folder="sensi_to_stop_loss",
+                    ) for x in [0.025,0.05,0.075,0.10]]
+
+iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
+                    strategy_name=f"Cost (in std of annualised vol)={int(x*100)}%",
+                    folder="sensi_to_cost",
+                    ) for x in [0, 0.1, 0.5, 1]]
+base = [dict(folder="base",
+             strategy_name="baseline",
+             debug=True,
+             )]
+# test = [dict(correlation_window=120,
+#             mean_reversion_window=60,
+#             max_holding_period=60,
+#             rebal_frequency=1,
+#             folder="test",
+#             strategy_name=f"test",
+#             debug=False,
+#             signal_threshold_entry=0.75,
+#
+#              )]
+
+iterations=base
+# for i in range(2,9):
+#     iterations+=locals()[f"iterations{i}"]
+
 strategies_to_run = [get_settings(params) for params in iterations]
 
 # def main():

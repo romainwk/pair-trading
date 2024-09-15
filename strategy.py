@@ -9,6 +9,7 @@ from collections import ChainMap
 import scipy
 import os
 from pykalman import KalmanFilter
+pd.set_option('future.no_silent_downcasting', True)
 
 class MeanReversionSignal(object):
     def __init__(self, settings):
@@ -91,19 +92,18 @@ class MeanReversionSignal(object):
         self.mr_signal = pd.DataFrame(L*F, index=self.S.index, columns=self.S.columns)
 
     def _save(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.mr_signal.to_csv(f"{directory}\\mean_reversion_signal.csv")
         self.HR.to_csv(f"{directory}\\HR.csv")
 
     def run(self):
-        # self._load()
         self._get_returns()
         self._get_hedge_ratio()
         self._get_spread()
         self._get_mean_reversion_signal()
-        if self.export_data: self._save()
+        if self.debug: self._save()
 
 class BuildStrategy(object):
     def __init__(self, settings):
@@ -112,13 +112,14 @@ class BuildStrategy(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-        self.mr_signal = self.mean_reversion.mr_signal
-        self.HR = self.mean_reversion.HR
-        self.rho = self.correlations.rho
+        if not self.debug:
+            self.mr_signal = self.mean_reversion.mr_signal
+            self.HR = self.mean_reversion.HR
+            self.rho = self.correlations.rho
         self.run()
 
     def _load(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
         self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
         self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
         self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
@@ -323,8 +324,9 @@ class BuildStrategy(object):
         if not os.path.exists(directory):
             os.makedirs(directory)
         self.I.to_csv(f"{directory}\\index.csv")
-        # self.portfolio.iloc[-2000:].to_csv(f"{directory}\\portfolio.csv")
-        # self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
+        if self.debug:
+            self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
+            self.portfolio.iloc[-2000:].to_csv(f"{directory}\\portfolio.csv")
 
     def _get_portfolio_stats(self):
         ts = self.I
@@ -337,8 +339,7 @@ class BuildStrategy(object):
         pass
 
     def run(self):
-
-        # self._load()
+        if self.debug: self._load()
         self._get_portfolio()
         self._reindex_portfolio()
         self._size_portfolio()
