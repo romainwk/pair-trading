@@ -359,6 +359,7 @@ class WebApp(object):
                              notional_sizing=("TargetNotional", "TargetVol"),  # TargetNotional, TargetVol
                              leverage=(0.5,1,2,4),  # gross leverage of L/S strategy if sizing by TargetNotional
                              transaction_cost=(0, 0.5 * 1 / np.sqrt(252),  1 / np.sqrt(252), 2 / np.sqrt(252)),
+                             n_parallel_jobs=(1,4,8,16),
                              )
 
         default =  dict(correlation_estimate=1,
@@ -374,6 +375,7 @@ class WebApp(object):
                              notional_sizing=0,  # TargetNotional, TargetVol
                              leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
                              transaction_cost=0,
+                             n_parallel_jobs=0,
                              )
         options = {}
         for param, choice in param_choices.items():
@@ -453,12 +455,6 @@ class WebApp(object):
         st.subheader("Portfolio view")
         st.dataframe(df.iloc[-50:])
 
-
-    def limitations(self):
-        st.write("No access to historical comp of indices \n "
-                 "Transaction cost v rough"
-                 "GIC industry -> would be better to use"
-                 "")
 
     def run(self):
 
