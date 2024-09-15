@@ -1,5 +1,3 @@
-from colorama.ansi import set_title
-
 from settings import FILE_PATH
 import scipy
 import streamlit as st
