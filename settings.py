@@ -76,7 +76,7 @@ iterations5 = [dict(rebal_frequency=w,
                     ) for w in list(range(5,35,5))]
 
 iterations6 = [dict(max_holding_period=w,
-                    strategy_name=f"Max_Holding Period_{int(w)}",
+                    strategy_name=f"Max_Holding_Period_{int(w)}",
                     folder="sensi_to_holding_period",
                     ) for w in [5] + list(range(10,90,10))]
 
