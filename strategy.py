@@ -10,6 +10,7 @@ import scipy
 import os
 from pykalman import KalmanFilter
 pd.set_option('future.no_silent_downcasting', True)
+import streamlit as st
 
 class MeanReversionSignal(object):
     def __init__(self, settings):
@@ -19,7 +20,8 @@ class MeanReversionSignal(object):
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
         self.rho=self.correlations.rho
-        self.run()
+        with st.status("Generating dislocation/mean-reversion signal"):
+            self.run()
 
     # def _load(self):
     #     directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
@@ -116,7 +118,8 @@ class BuildStrategy(object):
             self.mr_signal = self.mean_reversion.mr_signal
             self.HR = self.mean_reversion.HR
             self.rho = self.correlations.rho
-        self.run()
+        with st.status("Building the portfolio..."):
+            self.run()
 
     def _load(self):
         directory = f"{FILE_PATH}\\strategies\\{self.folder}\\{self.strategy_name}"
@@ -326,17 +329,7 @@ class BuildStrategy(object):
         self.I.to_csv(f"{directory}\\index.csv")
         if self.debug:
             self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
-            self.portfolio.iloc[-2000:].to_csv(f"{directory}\\portfolio.csv")
-
-    def _get_portfolio_stats(self):
-        ts = self.I
-        ts= ts.astype(float)
-
-        r = np.log(ts/ts.shift(1).dropna())
-
-        sr = r.mean()/r.std()*np.sqrt(252)
-        print(sr)
-        pass
+            self.portfolio.to_csv(f"{directory}\\portfolio.csv")
 
     def run(self):
         if self.debug: self._load()
@@ -349,5 +342,4 @@ class BuildStrategy(object):
         self._add_exit_conditions()
         self._add_entry_exit_costs()
         self._get_portfolio_pnl()
-        self._get_portfolio_stats()
         self._save()

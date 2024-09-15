@@ -6,7 +6,6 @@ import correlation_estimate
 import strategy
 import settings
 
-# @st.cache_data
 def strategy_runner(settings):
 
     schedule = scheduler.Schedule(settings)
@@ -17,7 +16,7 @@ def strategy_runner(settings):
     settings.update(correlations=correlations)
     mean_reversion = strategy.MeanReversionSignal(settings)
     settings.update(mean_reversion=mean_reversion)
-    portfolio = strategy.BuildStrategy(settings)
+    strategy.BuildStrategy(settings)
 
 def main():
     strategies = settings.strategies_to_run

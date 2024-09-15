@@ -39,6 +39,7 @@ def get_settings(params):
                                 debug=False,
                                 folder="base",
                                 )
+
     strategy={**signal_settings,
               **strategy_settings,
               **computation_settings,
@@ -95,7 +96,7 @@ iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
                     ) for x in [0, 0.1, 0.5, 1]]
 base = [dict(folder="base",
              strategy_name="baseline",
-             debug=True,
+             debug=False,
              )]
 # test = [dict(correlation_window=120,
 #             mean_reversion_window=60,

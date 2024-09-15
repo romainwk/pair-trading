@@ -1,11 +1,13 @@
 import pandas_market_calendars as mcal
 import datetime
+import streamlit as st
 
 class Schedule(object):
     def __init__(self, settings):
         for key, val in settings.items():
             setattr(self, key, val)
-        self.run()
+        with st.status("Generating schedule..."):
+            self.run()
 
     def _get_good_trading_dates(self):
         cal = mcal.get_calendar(self.trading_calendar)

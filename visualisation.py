@@ -1,12 +1,17 @@
+from colorama.ansi import set_title
+
 from settings import FILE_PATH
 import scipy
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import sklearn
 import settings
 import plotly.express as px
 import plotly.graph_objects as go
+import strategy_runner
+import settings
 
 def lineplot(df, default, key, type="Scatter"):
     clist = df.columns.tolist()
@@ -206,14 +211,14 @@ class WebApp(object):
         - Historical prices are downloaded from Yahoo via the API (see data_downloader.py) 
         - Prices are adjusted for splits and dividends
         - However due to data access constraint, the dataset doesn't account for index composition change (normally retrieved via BBG MEMB)
-        - It is possible to easily expand the analysis to other indices by populating the relevant index settings in data_downloader.py  
+        - The analysis can be easily expanded to other indices by populating the relevant index settings in data_downloader.py  
             """
         )
 
         st.subheader(r"Step1: Pair Candidates")
 
         st.markdown(r"""
-                   **Filtering**.
+                   **Correlation Filtering**
                    """)
 
         st.markdown(
@@ -221,14 +226,14 @@ class WebApp(object):
         )
         st.markdown(r"""
             There are many ways to do this (mininum distance metrics, cointegration tests)... For simplicity I chose to focus here on estimating correlations.  
-            Due to the large dimension of the problem [pair combinations: $N*(N-1)/2$ ~ order 100,000] relative to the size of the training period (typically few months), 
+            Due to the large dimension of the problem [pair combinations: $N*(N-1)/2$ ~ order 100,000] relative to the size of the training period (typically few weeks or months), 
             I used the following strategy to reduce the number of candidates: 
             - Stocks in the universe are grouped in clusters. A cluster is defined here as GIC sector groups 
-            - Correlations of demeaned daily log returns over a period $T^{L}$ are estimated on a rolling basis
+            - Correlations of demeaned daily log returns over a period $T_{L}$ are estimated on a rolling basis
             - A "triple-quantile" filter is applied to each correlation matrix at each time $t$:
-                - For a stock $i$, consider stocks $j$ within the top $q$ quantile of its pairwise corr 
-                - For a given cluster $k$, retain the pairs within the top $q$ quantile of correlations in the cluster
-                - Aggregate all clusters and retain the pairs within the top $q$ quantile of correlations across clusters
+                - For a stock $i$, consider stocks $j$ within the top $q$ quantile of its pairwise correlation 
+                - For a given cluster $k \in K$, retain the pairs within the top $q$ quantile of correlations in the cluster
+                - Aggregate all clusters and retain the pairs within the top $q$ quantile of correlations across $K$ clusters
                 """)
 
         st.markdown(r"""
@@ -236,6 +241,7 @@ class WebApp(object):
             - 1st quantile pass: Avoid running too many correlated trades
             - 2nd quantile pass: select best in class
             - 3rd quantile pass: retain sectorial diversification
+            The same $q$ is kept through all 3 passes to reduce overparametrisation.
             """
         )
 
@@ -248,10 +254,10 @@ class WebApp(object):
         st.pyplot(fig)
 
         st.markdown(r"""
-                **Correlation Estimate**.
+                **Correlation Estimators**.
                 """)
         st.markdown(r"""
-        Sample correlation is a notoriously noisy measure, especially as $N$ becomes large relative to $T$. The backtester supports more robust correlation estimates: 
+        Sample correlation is a notoriously noisy measure, especially as $N$ becomes large relative to $T$. The backtester supports smoother correlation estimates: 
         - Exponentially weighted moving average correlation (EWMCorrelation)
         - Linear shrinkage estimators (LedoitWolfShrinkage, OracleApproximatingShrinkage) 
         """)
@@ -262,34 +268,168 @@ class WebApp(object):
                         **Dislocation / Mean-reversion signal**.
                         """)
         st.markdown(r"""
-        The pairs obtained in the previous step are candidates for inclusion in the strategy. A signal assesses dislocation among highly correlated pairs: 
-        - Log returns of pair $(i,j)$ are regressed on the rolling window $T_{L}$: 
+        The pairs obtained in the previous step (high correlation) are candidates for inclusion in the strategy. 
+        """)
+        st.markdown(r"""
+        A signal (Entry Signal) assesses dislocation among highly correlated pairs and decides which pairs are to be included. The signal is obtained through these steps:   
+        - $\forall (i,j) \in Candidates_{t}$, the log returns of pair $(i,j)$ are regressed on the rolling window $T_{L}$:    
         $S_{i,t} = \beta_{i,j,t}*S_{j,t} + \varepsilon_{i,j,t}$  
         - An EWMA of the short-term spread (e.g. residuals) $\hat{X_{t}} = EWMA(S_{i,t} - \beta_{i,j,t}*S_{j,t} )$ gives an indication of dislocation between pair $i$ and $j$. The EWMA is estimated using a window $T_{S}=0.5*T_{L}$   
-        - The spread is standardised on a rolling basis (window=$T_{S}$) to form a z-score
-        - The z-score is mapped to a continuous signal $\widehat{MR_{t}} = f(\hat{X_{t}}) \in [0,1]$ via a logistic transformation $f$ 
+        - The spread is standardised on a rolling basis ($window=T_{S}$) to form a z-score $\hat{Z_{t}}$
+        - The z-score $\hat{Z_{t}}$ is mapped to a continuous entry signal $\widehat{V_{t}} = f(\hat{Z_{t}}) \in [0,1]$ via a logistic transformation $f$
                         """)
 
         st.markdown(r"""
                        **Illustration of the entry signal**.
                        """)
 
-        st.write("This is a band-stop filter on the z-score")
+        st.markdown(r"""$\beta_{i,j,t}$ is estimated by Kalman filtering:""")
+
+        path = f"{FILE_PATH}/strategies/base/baseline"
+        df = pd.read_csv(f"{path}/HR.csv", index_col=0, parse_dates=True, header=[0,1]).iloc[100:]
+        df.columns = [f"{i}, {j}" for i, j in zip(df.columns.get_level_values(0), df.columns.get_level_values(1))]
+        lineplot(df, default=["BAC, JPM", "BAC, C"], key="kalman")
+
+        st.markdown(r"""The z-score $\hat{Z_{t}}$ of the spread (regression residuals) is mapped to a dislocation / mean-reversion signal $\in [0,1]$""")
+        st.markdown(r"""$L_t=2\Phi(\hat{Z_{t}})-1$""")
+        st.markdown(r"""$F_t=(1-\phi(\hat{Z_{t}})/(\phi(0)))$""")
+        st.markdown(r"""$V_t=L_tF_t$""")
+
+        st.markdown(r"""This applies a band-stop filter so that low absolute values of z-scores are discarded""")
 
         fig, axes = plt.subplots(figsize=(8, 4))
-
         axes.set_title("Filter")
 
         domain = np.arange(-4, 4, 0.10)
         L = pd.Series({d1: (2 * scipy.stats.norm.cdf(d1) - 1) for d1 in domain})
         F = pd.Series({d1: (1 - scipy.stats.norm.pdf(d1) / scipy.stats.norm.pdf(0)) for d1 in domain})
-        df = pd.DataFrame(dict(L=L, F=F, S=L * F))
+        df = pd.DataFrame(dict(L=L, F=F, V=L * F))
         df.plot(ax=axes)
+        axes.set_xlabel(r"z-score $\hat{Z_{t}}$")
+        axes.axhline(0, linewidth=0.5, linestyle="--")
+        axes.set_ylabel(r"$Entry signal$")
         st.pyplot(fig)
 
+        st.markdown(r"""**Entry Signal example among correlated pairs:**""")
+        df = pd.read_csv(f"{path}/mean_reversion_signal.csv", index_col=0, parse_dates=True, header=[0, 1]).iloc[100:]
+        df.columns = [f"{i}, {j}" for i, j in zip(df.columns.get_level_values(0), df.columns.get_level_values(1))]
+        lineplot(df, default=["BAC, JPM", "BAC, C"], key="mr_signal")
+
+        st.subheader(r"Step3: Exit Signal and Portfolio Construction")
+
+        st.markdown(r"""**Exit Signal:**""")
+        st.markdown(r"""At each portfolio rebalance date, the portfolio includes a new set of trades given by the Entry Signal $V_t$ from Step2""")
+        st.markdown(r"""
+        Exit is triggered when the earliest of 4 conditions applies:
+        - The dislocation signal $V_t$ reaches **signal_threshold_exit**
+        - The **max_holding_period** is reached 
+        - The **profit_taking** target is reached
+        - The **stop_loss** target is reached
+        
+        """)
+
+        st.markdown(r"""**Portfolio Construction:**""")
+        st.markdown(r"""
+        - The entry size is proportional to the strength of the Entry Signal $V_t$
+        - The leverage can be set to hit a gross notional target (**notional_sizing="TargetNotional"**) or a realised volatility target (**notional_sizing="TargetVol"**)
+        - Trades are generally overlapping (the next rebalance date precedes the exit date from the previous trades)
+        """)
+
+        st.markdown(r"""**Transaction costs:**""")
+        st.markdown(r"""
+        In the absence of order book level data, costs are estimated using an estimate of realised volatility (EWM, $window=T_{L}$
+        """)
+        st.markdown(r"""
+        Costs are set with **transaction_cost** as a multiple of daily standard deviation.
+        While this is a very rough estimate, Sarkissian (2016) gives some theoretical support by showing how the bid-ask spread can be related to the underlying volatility by expressing it as a function of straddle premium
+        """)
 
     def example(self):
         pass
+
+
+        st.header("Strategy example")
+        st.subheader("Parameters choice")
+
+        param_choices = dict(correlation_estimate=("SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"),
+                             hedge_ratio_estimate=("RollingOLS", "KalmanFilter"),
+                             correlation_window=(60,90,120,150),
+                             correlation_quantile=(0.05, 0.10, 0.15, 0.20),
+                             mean_reversion_window=(10,20,30,45,60),
+                             rebal_frequency=(5,10,15,20,),  # how frequently a new set of pairs is considered
+                             max_holding_period=(1,5,10,15,20),
+                             profit_taking=(None, 0.01,0.02,0.03,0.04,0.05),
+                             stop_loss=(None, 0.01,0.02,0.03,0.04,0.05),
+
+                             notional_sizing=("TargetNotional", "TargetVol"),  # TargetNotional, TargetVol
+                             leverage=(0.5,1,2,4),  # gross leverage of L/S strategy if sizing by TargetNotional
+                             transaction_cost=(0.1 * 1 / np.sqrt(252)*0),
+                             )
+
+        default =  dict(correlation_estimate=1,
+                             hedge_ratio_estimate=1,
+                             correlation_window=1,
+                             correlation_quantile=1,
+                             mean_reversion_window=3,
+                             rebal_frequency=0,  # how frequently a new set of pairs is considered
+                             max_holding_period=2,
+                             profit_taking=0,
+                             stop_loss=0,
+
+                             notional_sizing=0,  # TargetNotional, TargetVol
+                             leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
+                             transaction_cost=0,
+                             )
+        options = {}
+        for param, choice in param_choices.items():
+            options[param] = st.selectbox(param, choice, index=default[param])
+
+        strat_settings = settings.get_settings(dict(strat_name="test", folder="test"))
+        strat_settings.update(options)
+        strategy_runner.strategy_runner(strat_settings)
+
+        print("")
+
+        # path = f"{FILE_PATH}/strategies/base/baseline"
+        # df = pd.read_csv(f"{path}/portfolio_composition.csv", index_col=0, parse_dates=True)
+        # x= pd.DataFrame(df["GIC_sector"].value_counts()).rename(dict(count="Number of pairs traded"))
+        #
+        # fig = go.Figure()
+        # fig.add_trace(go.Bar(x=x.index, y=x["count"]))
+        # fig.update_layout(
+        #     title="Number of pair traded per sector"
+        # )
+        # st.plotly_chart(fig)
+        #
+        # df["Pair"] = [f"{x}, {y}" for x, y in zip(df["Pair1"], df["Pair2"])]
+        # top = df["Pair"].groupby(df.Pair).count().sort_values(ascending=False).iloc[:10]
+        #
+        # fig = go.Figure()
+        # fig.add_trace(go.Bar(x=top.index, y=top))
+        # fig.update_layout(
+        #     title="Top 10 most traded pairs"
+        # )
+        # st.plotly_chart(fig)
+
+
+        # for strat, x in dfs.items():
+        #     fig = fig.add_trace(getattr(go, type)(x=df.index, y=x, name=strat))
+        # return st.plotly_chart(fig)
+
+
+        # axes.set_xlabel(r"z-score $\hat{Z_{t}}$")
+        # axes.axhline(0, linewidth=0.5, linestyle="--")
+        # axes.set_ylabel(r"$Entry signal$")
+
+
+        # lineplot(x, default=x.columns, key="mr_signal", type="Bar")
+
+        st.markdown(r"""
+              Strategy parameters: 
+              
+    
+              """)
+
 
     def limitations(self):
         st.write("No access to historical comp of indices \n "
@@ -300,15 +440,16 @@ class WebApp(object):
     def run(self):
 
         pg = st.navigation([st.Page(self.methodology),
-                            st.Page(self.example),
                             st.Page(self.results),
+                            st.Page(self.example),
                             # st.Page(self.limitations)
                             ],
                            )
-        #
+
         pg.run()
         # self.methodology()
         # self.results()
+        # self.example()
 
 def main():
     WebApp()

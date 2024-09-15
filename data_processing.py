@@ -1,6 +1,6 @@
 from settings import FILE_PATH
 import pandas as pd
-
+import streamlit as st
 
 class Data(object):
     '''
@@ -13,7 +13,8 @@ class Data(object):
     def __init__(self, settings):
         for key, val in settings.items():
             setattr(self, key, val)
-        self.run()
+        with st.status("Processing data..."):
+            self.run()
 
     def _load(self):
         price = pd.read_csv(f"{FILE_PATH}//data//{self.index_universe}_data.csv", index_col=0, parse_dates=True)

@@ -8,6 +8,7 @@ import os
 import logging
 from joblib import Parallel, delayed
 from collections import ChainMap
+import streamlit as st
 
 class CorrelationEstimator(object):
     def __init__(self, settings):
@@ -17,8 +18,8 @@ class CorrelationEstimator(object):
         self.clusters = self.data.clusters
         self.trading_dates = self.schedule.trading_dates
         self.rebal_dates = self.schedule.rebal_dates
-
-        self.run()
+        with st.status(f"Estimating correlations ({self.n_parallel_jobs} parallel jobs)..."):
+            self.run()
 
     def _handle_missing_data(self, A):
         A = A.dropna(how="all", axis=1)
