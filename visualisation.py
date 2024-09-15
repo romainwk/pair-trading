@@ -4,6 +4,9 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import settings
+import plotly.express as px
+import plotly.graph_objects as go
 
 class WebApp(object):
     def __init__(self):
@@ -13,6 +16,23 @@ class WebApp(object):
 
     def summary(self):
         st.write("Text that explains the approach being taken")
+        pass
+
+    def plot(self, df):
+        df = pd.DataFrame(px.data.gapminder())
+
+        clist = df["country"].unique().tolist()
+
+        countries = st.multiselect("Select country", clist)
+        st.header("You selected: {}".format(", ".join(countries)))
+
+        dfs = {country: df[df["country"] == country] for country in countries}
+
+        fig = go.Figure()
+        for country, df in dfs.items():
+            fig = fig.add_trace(go.Scatter(x=df["year"], y=df["gdpPercap"], name=country))
+
+        st.plotly_chart(fig)
 
     def methodology(self):
 
@@ -50,8 +70,40 @@ class WebApp(object):
         st.write("Showing here the main results of the strat")
 
         st.write("This is the backtesting results")
-        df = pd.read_excel(f"{FILE_PATH}//strategies//index_test4.xlsx", index_col=0, parse_dates=True)
-        st.line_chart(df)
+
+        names = [s.get("strategy_name") for s in settings.iterations1[:5]]
+        df = pd.concat([pd.read_csv(f"{FILE_PATH}//strategies/{name}/index.csv", index_col=0, parse_dates=True)["Index"] for name in names], axis=1, keys=names)
+        # df = pd.read_excel(f"{FILE_PATH}//strategies//index_test4.xlsx", index_col=0, parse_dates=True)
+        st.line_chart(df, width =2)
+
+        clist = df.columns.tolist()
+
+        strategies = st.multiselect("Select strategy", clist)
+        st.header("You selected: {}".format(", ".join(strategies)))
+
+        dfs = {strat: df[strat] for strat in strategies}
+
+        fig = go.Figure()
+        for strat, df in dfs.items():
+            fig = fig.add_trace(go.Scatter(x=df.index, y=df[strat], name=strat))
+
+        st.plotly_chart(fig)
+
+        x = st.slider('x')  # 👈 this is a widget
+        st.write(x, 'squared is', x * x)
+
+        df = pd.DataFrame({
+            'first column': [1, 2, 3, 4],
+            'second column': [10, 20, 30, 40]
+        })
+
+        option = st.selectbox(
+            'Which number do you like best?',
+            df['first column'])
+
+        fig, axes = plt.subplots(figsize=(8, 4))
+        axes.plot(df)
+        st.pyplot(fig)
 
     def limitations(self):
         st.write("No access to historical comp of indices \n "
@@ -61,14 +113,15 @@ class WebApp(object):
 
     def run(self):
 
-        pg = st.navigation([st.Page(self.summary),
-                            st.Page(self.methodology),
-                            st.Page(self.results),
-                            st.Page(self.limitations)
-                            ],
-                           )
-
-        pg.run()
+        # pg = st.navigation([st.Page(self.summary),
+        #                     st.Page(self.methodology),
+        #                     st.Page(self.results),
+        #                     st.Page(self.limitations)
+        #                     ],
+        #                    )
+        #
+        # pg.run()
+        self.results()
 
 def main():
     WebApp()

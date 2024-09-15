@@ -314,6 +314,8 @@ class BuildStrategy(object):
 
     def _save(self):
         directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
         self.I.to_csv(f"{directory}\\index.csv")
         self.portfolio.iloc[-2000:].to_csv(f"{directory}\\portfolio.csv")
         self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
