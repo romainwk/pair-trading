@@ -4,9 +4,6 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import sklearn
-import settings
-import plotly.express as px
 import plotly.graph_objects as go
 import strategy_runner
 import settings
