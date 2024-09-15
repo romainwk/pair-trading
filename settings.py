@@ -71,27 +71,27 @@ iterations4 = [dict(correlation_quantile=q,
                     ) for q in [0.25,0.15,0.10,0.05]]
 
 iterations5 = [dict(rebal_frequency=w,
-                    strategy_name=f"Rebal Freq_{int(w)}",
+                    strategy_name=f"Rebal_Freq_{int(w)}",
                     folder="sensi_to_rebal_freq",
                     ) for w in list(range(5,35,5))]
 
 iterations6 = [dict(max_holding_period=w,
-                    strategy_name=f"Max Holding Period_{int(w)}",
+                    strategy_name=f"Max_Holding Period_{int(w)}",
                     folder="sensi_to_holding_period",
                     ) for w in [5] + list(range(10,90,10))]
 
 iterations7 = [dict(profit_taking=x,
-                    strategy_name=f"Profit Taking Threshold_{int(x*100)}pct",
+                    strategy_name=f"Profit_Taking_Threshold_{int(x*100)}pct",
                     folder="sensi_to_profit_taking",
                     ) for x in [0.025,0.05,0.075,0.10]]
 
 iterations8 = [dict(stop_loss=x,
-                    strategy_name=f"Stop Loss Threshold_{int(x*100)}pct",
+                    strategy_name=f"Stop_Loss_Threshold_{int(x*100)}pct",
                     folder="sensi_to_stop_loss",
                     ) for x in [0.025,0.05,0.075,0.10]]
 
 iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
-                    strategy_name=f"Cost (in std of realised vol)_{int(x*100)}pct",
+                    strategy_name=f"Cost_(in_std_of_realised_vol)_{int(x*100)}pct",
                     folder="sensi_to_cost",
                     ) for x in [0, 0.1, 0.5, 1]]
 base = [dict(folder="base",
