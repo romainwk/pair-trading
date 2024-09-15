@@ -240,7 +240,7 @@ class WebApp(object):
         )
 
         # universe of eligible pairs are identified by means of long term correlation among each industry group
-        df = pd.read_csv(f"data\\S&P500_classification.csv", index_col=0)
+        df = pd.read_csv(f"data//S&P500_classification.csv", index_col=0)
         x = df["GIC_sector"].groupby(df.GIC_sector).count()
         fig, axes = plt.subplots(figsize=(10, 4))
         x.sort_values(ascending=False).plot.bar(ax=axes)
