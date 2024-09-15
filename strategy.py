@@ -8,6 +8,7 @@ from joblib import Parallel, delayed
 from collections import ChainMap
 import scipy
 import os
+from pykalman import KalmanFilter
 
 class MeanReversionSignal(object):
     def __init__(self, settings):
@@ -16,12 +17,12 @@ class MeanReversionSignal(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-
+        self.rho=self.correlations.rho
         self.run()
 
-    def _load(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
-        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1,2,3])
+    # def _load(self):
+    #     directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1,2,3])
 
     def _get_returns(self):
         price = self.data.price
@@ -29,7 +30,7 @@ class MeanReversionSignal(object):
         R = (R - R.rolling(self.correlation_window).mean())  # / r.expanding().std() # returns are standardised
         self.R = R
 
-    def rolling_OLS(self,pair):
+    def RollingOLS(self,pair):
         r = self.R[list(pair)].dropna()
         x, y = r[pair[1]], r[pair[0]]
         rols = RollingOLS(y, x, window=min(self.correlation_window, len(r)))
@@ -37,7 +38,29 @@ class MeanReversionSignal(object):
         beta = rres.params.copy()[pair[1]]
         return {pair:beta}
 
+    def KalmanFilter(self, pair, beta_prior=1, delta = 1e-5):
+
+        r = self.R[list(pair)].dropna()
+        r = (r / r.rolling(self.correlation_window).std()).dropna() # standardise obs so residuals ~N(0,1)
+        x, y = pd.DataFrame(r[pair[1]]), r[pair[0]]
+
+        kf = KalmanFilter(
+            n_dim_obs=1,
+            n_dim_state=1,
+            initial_state_mean=beta_prior,
+            initial_state_covariance=np.ones(1),
+            transition_matrices=np.eye(1),
+            observation_matrices=np.array(x)[:, np.newaxis],
+            observation_covariance=1.0,
+            transition_covariance=delta
+        )
+
+        beta, cov = kf.filter(y)
+        beta = pd.DataFrame(beta, index=r.index)[0]
+        return {pair: beta}
+
     def _get_hedge_ratio(self):
+        # estimate t/s of HR across all pairs in the strategy
         unique_pairs = set(zip(self.rho.index.get_level_values(1), self.rho.index.get_level_values(2)))
         batch_size=int(len(unique_pairs)/self.n_parallel_jobs)
         hedge_ratio_func = getattr(self, self.hedge_ratio_estimate)
@@ -75,12 +98,12 @@ class MeanReversionSignal(object):
         self.HR.to_csv(f"{directory}\\HR.csv")
 
     def run(self):
-        self._load()
+        # self._load()
         self._get_returns()
         self._get_hedge_ratio()
         self._get_spread()
         self._get_mean_reversion_signal()
-        self._save()
+        if self.export_data: self._save()
 
 class BuildStrategy(object):
     def __init__(self, settings):
@@ -89,14 +112,16 @@ class BuildStrategy(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-
+        self.mr_signal = self.mean_reversion.mr_signal
+        self.HR = self.mean_reversion.HR
+        self.rho = self.correlations.rho
         self.run()
 
-    def _load(self):
-        directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
-        self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
-        self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
-        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1, 2, 3], parse_dates=True)
+    # def _load(self):
+    #     directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
+    #     self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
+    #     self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
+    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1, 2, 3], parse_dates=True)
 
     def _get_portfolio(self):
         mr_signal = self.mr_signal.copy()
@@ -114,7 +139,15 @@ class BuildStrategy(object):
         portfolio = portfolio.join(HR, how="left")
         portfolio = portfolio[portfolio.HR.notna()]
         portfolio = portfolio[portfolio.EntrySignal.notna()]
+        portfolio["AbsEntrySignal"] = portfolio["EntrySignal"].abs()
+
+        portfolio["EntrySignalRank"] = portfolio["AbsEntrySignal"].groupby(portfolio.index.get_level_values(0)).rank(ascending=False)
+        if self.select_top_n_stocks:
+            portfolio = portfolio.query(f"EntrySignalRank<={self.select_top_n_stocks}")
+        if self.min_signal_threshold:
+            portfolio["EntrySignal"] = portfolio["EntrySignal"].where(portfolio["AbsEntrySignal"] > self.min_signal_threshold, 0)
         self.portfolio=portfolio
+        self.portfolio_composition = self.portfolio
 
     def _reindex_portfolio(self):
         def _add_trading_dates(p, t):
@@ -231,7 +264,7 @@ class BuildStrategy(object):
         p["EntryCostPair2"] = self.transaction_cost * p["RealisedVolPair2"] * p["EntryDate"].shift(1).fillna(0)
 
         p["NetPnLPair"] = p["PnLPair"] - abs(p["UnitPair1"]) * p["EntryCostPair1"] - abs(p["UnitPair2"]) * p["EntryCostPair2"]
-        p["PairNetDailyPnL"] = p["NetPnLPair"] * (1 - p["Exited"].shift(1)).fillna(0)
+        p["NetPnLPairWithExit"] = p["NetPnLPair"] * (1 - p["Exited"].shift(1)).fillna(0)
 
         self.portfolio=p
 
@@ -269,21 +302,21 @@ class BuildStrategy(object):
             x.index.name="RollNumber"
 
             active_trades = active_trades.join(x, "RollNumber", how="left")
-            active_trades["NotionalDailyPnL"] = active_trades["Notional"]*active_trades["PairNetDailyPnL"]
+            active_trades["NotionalDailyPnL"] = active_trades["Notional"]*active_trades["NetPnLPairWithExit"]
 
             pnl = active_trades["NotionalDailyPnL"].groupby("Date").sum()
 
             I = pd.concat([I, I.loc[tm1] + pnl])
 
         I = I.astype(float)
+        I.name="Index"
         self.I = I
-
-        self.I.to_excel(f"{FILE_PATH}//strategies//index_test4.xlsx")
 
     def _save(self):
         directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
         self.I.to_csv(f"{directory}\\index.csv")
-        # self.portfolio.to_csv(f"{directory}\\portfolio.csv")
+        self.portfolio.iloc[-2000:].to_csv(f"{directory}\\portfolio.csv")
+        self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
 
     def _get_portfolio_stats(self):
         ts = self.I
@@ -297,7 +330,7 @@ class BuildStrategy(object):
 
     def run(self):
 
-        self._load()
+        # self._load()
         self._get_portfolio()
         self._reindex_portfolio()
         self._size_portfolio()

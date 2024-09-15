@@ -20,9 +20,6 @@ class CorrelationEstimator(object):
 
         self.run()
 
-    # def EWMCorrelation(self, X):
-    #     return X.ewm(halflife=self.correlation_window, min_periods=self.correlation_window).corr()
-
     def _handle_missing_data(self, A):
         A = A.dropna(how="all", axis=1)
         A = A.where(A.notna(), A.median(), axis=1) # estimate remaining NAs with median over obs window
@@ -38,6 +35,12 @@ class CorrelationEstimator(object):
     def SampleCorrelation(self, M):
         # return X.rolling(window=self.correlation_window, min_periods=self.correlation_window).corr()
         R = {t: X.corr() for t, X in M.items()}
+        return R
+
+    def EWMCorrelation(self, M):
+        R = self.X.ewm(halflife=self.correlation_window, min_periods=self.correlation_window).corr()
+        R = {t: R.xs(t) for t in M}
+        R = {t: r.dropna(how="all", axis=1).dropna(how="all", axis=0) for t, r in R.items()}
         return R
 
     def LedoitWolfShrinkage(self, M):
@@ -136,6 +139,7 @@ class CorrelationEstimator(object):
         X = np.log(price / price.shift(1))
         X = (X - X.rolling(self.correlation_window).mean())# center returns
         M = self._gen_sliding_windows(X)
+        self.X=X
 
         R = getattr(self, self.correlation_estimate)(M)
         R = self._filter_correlation(R)
@@ -150,78 +154,28 @@ class CorrelationEstimator(object):
         rho = rho.query("Correlation>=TopQuantileCorrAllClusters")
         return rho
 
+    def _format(self, rho):
+        rho = rho.sort_values(by=["Date", self.cluster_by])
+        rho[self.cluster_by] = rho.index.get_level_values(0)
+        rho.index= rho.index.droplevel(0)
+        return rho
+
     def _save(self, rho):
         directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
         if not os.path.exists(directory):
             os.makedirs(directory)
-        rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
+        self.rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
 
     def run(self):
         # [self._get_correlation_cluster(c) for c in self.clusters]
         # R = {c: self._get_correlation_cluster(c) for c in self.clusters}
+        # self.clusters=["Industrials"] #FIXME remove
+        # self.n_parallel_jobs = 1
 
         res = Parallel(n_jobs=self.n_parallel_jobs)(delayed(self._get_correlation_cluster)(c) for c in self.clusters)
         res = dict(ChainMap(*res))
         rho = pd.concat(res.values(), keys=res)
         rho.index.names = [self.cluster_by, "Date", "Pair1", "Pair2"]
         rho = self._filter_across_clusters(rho)
-        rho = rho.sort_values(by=["Date", self.cluster_by])
-        self._save(rho)
-
-    # def _select_pairs(self, corr_matrix, epsilon=1e-2):
-    #
-    #     corr_matrix = corr_matrix.loc[self.rebal_dates]
-    #
-    #     # X = collection of corr matrices each day
-    #     X = np.array([np.array(corr_matrix.xs(t)) for t in self.rebal_dates])
-    #     # upper triangular matrix above the diagonal to keep unique pairwise corr
-    #     U = np.triu(np.ones(X.shape[-2:]), k=1).astype(np.bool)
-    #     A = X * U
-    #
-    #     A = pd.DataFrame(A.reshape(corr_matrix.shape), index=corr_matrix.index, columns=corr_matrix.columns)
-    #
-    #     B = A.stack()
-    #     B = B[B>0]
-    #     B.name="Correlation"
-    #     B = pd.DataFrame(B)
-    #
-    #     # To reduce dimensionality, for each stock i, only consider a pair with stock j == max(corr(i,k))
-    #     max_corr_per_pair = corr_matrix[corr_matrix < 1-epsilon].max(axis=1).dropna()
-    #     max_corr_per_pair.name = "MaxPairWiseCorr1"
-    #     max_corr_per_pair2 = max_corr_per_pair.copy()
-    #     max_corr_per_pair2.name = "MaxPairWiseCorr2"
-    #
-    #     B = B.join(max_corr_per_pair, [B.index.get_level_values(0), B.index.get_level_values(1)], how="left").iloc[:,2:]
-    #     B = B.join(max_corr_per_pair2, [B.index.get_level_values(0), B.index.get_level_values(2)], how="left").iloc[:,2:]
-    #     B = B.query("Correlation==MaxPairWiseCorr1 or Correlation==MaxPairWiseCorr2")
-    #
-    #     # Selected pair is given by top quantile at each date
-    #     lower_bound = B.groupby(B.index.get_level_values(0)).apply(lambda x: np.quantile(x, q=1 - self.correlation_quantile))
-    #     lower_bound.name="LowerCorrBound"
-    #
-    #     B = B.join(lower_bound, B.index.get_level_values(0), how="left").iloc[:,1:]
-    #
-    #     # Expected selected number of pairs is of order N*q/2 since each stock can  be matched with another one
-    #     B = B.query("Correlation>LowerCorrBound")
-    #
-    #     return B
-    #
-    # def _aggregate(self, eligible_pairs):
-    #     eligible_pairs = pd.concat([eligible_pairs[sector]["Correlation"] for sector in eligible_pairs], axis=0, keys=eligible_pairs)
-    #     eligible_pairs = eligible_pairs.sort_index(level=1)
-    #
-    #     eligible_pairs = eligible_pairs.reset_index()
-    #
-    #     eligible_pairs["level_1"] = eligible_pairs["level_1"].dt.tz_localize(None)
-    #     eligible_pairs.to_excel(f"{FILE_PATH}//strategies\\eligible_pairs.xlsx")
-    #
-    # def run(self):
-    #
-    #     corr_matrices = {sector: self._get_corr_matrix(sector) for sector in self.sectors}
-    #     print("")
-    #     # logging.info("Selecting Pairs...")
-    #     # # step 2 - select pairs based on correlations
-    #     # eligible_pairs = {sector: self._select_pairs(corr_matrix) for sector, corr_matrix in corr_matrices.items()}
-    #     #
-    #     # # step 3 - aggregate pairs from all sectors
-    #     # self._aggregate(eligible_pairs)
+        self.rho= self._format(rho)
+        if self.export_data: self._save()
