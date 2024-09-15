@@ -8,6 +8,78 @@ import settings
 import plotly.express as px
 import plotly.graph_objects as go
 
+def lineplot(df, default):
+    clist = df.columns.tolist()
+    strategies = st.multiselect("Select strategy", clist, default =default)
+    st.text("You selected: {}".format(", ".join(strategies)))
+    dfs = {strat: df[strat] for strat in strategies}
+    fig = go.Figure()
+    for strat, x in dfs.items():
+        fig = fig.add_trace(go.Scatter(x=df.index, y=x, name=strat))
+    return st.plotly_chart(fig)
+
+def get_df(iteration):
+    names = [f"{s.get("folder")}/{s.get("strategy_name")}" for s in iteration]
+    df = pd.concat(
+        [pd.read_csv(f"{FILE_PATH}//strategies/{name}/index.csv", index_col=0, parse_dates=True)["Index"] for name in
+         names], axis=1, keys=[n.split("/")[-1] for n in names])
+    return df
+
+def performance_metrics(df):
+    def _sr(w):
+        log_r = np.log(df.div(df.shift(w))).mean()
+        vol = np.log(df.div(df.shift(w))).std()
+        sr = log_r/vol * np.sqrt(252/w)
+        return sr
+
+    def _annualised_ret():
+        T = (df.index[-1] - df.index[0]).days/365.25
+        r = (df.iloc[-1] / df.iloc[0])**(1/T)-1
+        return r
+
+    def _calmar_ratio(w):
+        log_r = np.log(df.div(df.shift(w)))
+        cond_vol = log_r[log_r<=0].std()
+        calmar = log_r.mean() / cond_vol * np.sqrt(252 / w)
+        return calmar
+
+    def _cvar(w, q):
+        r= df.pct_change(w)
+        q = r.quantile(q)
+        cvar = r[r <= q].mean()
+        return cvar
+
+    def _max_dd_over_w(w):
+        return df.pct_change(w).min()
+
+    def __max_dd_over_hist(s):
+        mdd = 0
+        peak = s.iloc[0]
+        for x in s:
+            if x > peak:
+                peak = x
+            dd = (peak - x) / peak
+            if dd > mdd:
+                mdd = dd
+        return -mdd
+
+    def _max_dd_over_hist():
+        return pd.Series({u: __max_dd_over_hist(df[u]) for u in df.columns})
+
+    metrics = {"Annualised Ret":_annualised_ret(),
+               "Realised Vol": np.log(df.div(df.shift(1))).std()*np.sqrt(252),
+               "Sharpe Ratio (daily)": _sr(w=1),
+               "Sharpe Ratio (weekly)":_sr(w=5),
+               "Sharpe Ratio (monthly)": _sr(w=20),
+               "Calmar Ratio":_calmar_ratio(w=20),
+               "Max DD over 1W": _max_dd_over_w(w=5),
+               "Max DD (peak to trough)": _max_dd_over_hist(),
+               "C-VaR(5%, 1M)": _cvar(w=20, q=0.05),
+    }
+    metrics = pd.DataFrame(metrics).T.round(2)
+    return metrics
+
+
 class WebApp(object):
     def __init__(self):
         pass
@@ -18,21 +90,22 @@ class WebApp(object):
         st.write("Text that explains the approach being taken")
         pass
 
-    def plot(self, df):
-        df = pd.DataFrame(px.data.gapminder())
+    def results(self):
 
-        clist = df["country"].unique().tolist()
+        st.write("Showing here the main results of the strat")
 
-        countries = st.multiselect("Select country", clist)
-        st.header("You selected: {}".format(", ".join(countries)))
+        st.header("Parameter Sensitivity")
 
-        dfs = {country: df[df["country"] == country] for country in countries}
+        st.subheader(r"Sensitivity to rolling window " + r"$w$")
+        st.write(f"Sensitivity to the window " + r"$w$" + " used to estimate the correlation")
 
-        fig = go.Figure()
-        for country, df in dfs.items():
-            fig = fig.add_trace(go.Scatter(x=df["year"], y=df["gdpPercap"], name=country))
+        df = get_df(iteration=settings.iterations1)
+        lineplot(df, default=df.columns[::4])
 
-        st.plotly_chart(fig)
+        perf_metrics = performance_metrics(df)
+        lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"])
+        st.dataframe(perf_metrics)
+
 
     def methodology(self):
 
@@ -66,44 +139,7 @@ class WebApp(object):
         df.plot(ax=axes)
         st.pyplot(fig)
 
-    def results(self):
-        st.write("Showing here the main results of the strat")
 
-        st.write("This is the backtesting results")
-
-        names = [s.get("strategy_name") for s in settings.iterations1[:5]]
-        df = pd.concat([pd.read_csv(f"{FILE_PATH}//strategies/{name}/index.csv", index_col=0, parse_dates=True)["Index"] for name in names], axis=1, keys=names)
-        # df = pd.read_excel(f"{FILE_PATH}//strategies//index_test4.xlsx", index_col=0, parse_dates=True)
-        st.line_chart(df, width =2)
-
-        clist = df.columns.tolist()
-
-        strategies = st.multiselect("Select strategy", clist)
-        st.header("You selected: {}".format(", ".join(strategies)))
-
-        dfs = {strat: df[strat] for strat in strategies}
-
-        fig = go.Figure()
-        for strat, df in dfs.items():
-            fig = fig.add_trace(go.Scatter(x=df.index, y=df[strat], name=strat))
-
-        st.plotly_chart(fig)
-
-        x = st.slider('x')  # 👈 this is a widget
-        st.write(x, 'squared is', x * x)
-
-        df = pd.DataFrame({
-            'first column': [1, 2, 3, 4],
-            'second column': [10, 20, 30, 40]
-        })
-
-        option = st.selectbox(
-            'Which number do you like best?',
-            df['first column'])
-
-        fig, axes = plt.subplots(figsize=(8, 4))
-        axes.plot(df)
-        st.pyplot(fig)
 
     def limitations(self):
         st.write("No access to historical comp of indices \n "

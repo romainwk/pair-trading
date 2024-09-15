@@ -36,6 +36,7 @@ def get_settings(params):
 
     computation_settings = dict(n_parallel_jobs=16,
                                 export_data=False,
+                                folder="base",
                                 )
     strategy={**signal_settings,
               **strategy_settings,
@@ -47,10 +48,14 @@ def get_settings(params):
 # iterate over correlation estimate, HR estimate, correlation_window, mr_window
 # iterations = dict(correlation_estimate=["EWMCorrelation", "SampleCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"])
 
-iterations1 = [dict(correlation_window=int(w), mean_reversion_window=int(w/2), strategy_name=f"W_L_{w}_W_S_{int(w/2)}") for w in np.arange(90,250,10)]
+iterations1 = [dict(correlation_window=int(w),
+                    mean_reversion_window=int(w/2),
+                    folder="window_sensi",
+                    strategy_name=f"W={w}") for w in np.arange(90,250,10)]
+
 iterations2 = [dict(correlation_estimate=s, strategy_name=f"W_L_120_W_S_60_Rho_{s}") for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"]]
 
-strategies_to_run = [get_settings(params) for params in iterations2]
+strategies_to_run = [get_settings(params) for params in iterations1]
 
 # def main():
 #     iterations1 = [
