@@ -1,6 +1,6 @@
 from streamlit import columns
 
-# from settings import FILE_PATH
+from settings import URL
 import pandas as pd
 import numpy as np
 from statsmodels.regression.rolling import RollingOLS
@@ -94,11 +94,9 @@ class MeanReversionSignal(object):
         self.mr_signal = pd.DataFrame(L*F, index=self.S.index, columns=self.S.columns)
 
     def _save(self):
-        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        self.mr_signal.to_csv(f"{directory}\\mean_reversion_signal.csv")
-        self.HR.to_csv(f"{directory}\\HR.csv")
+        directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
+        self.mr_signal.to_csv(f"{directory}/mean_reversion_signal.csv")
+        self.HR.to_csv(f"{directory}/HR.csv")
 
     def run(self):
         self._get_returns()
@@ -114,18 +112,17 @@ class BuildStrategy(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-        if not self.debug:
-            self.mr_signal = self.mean_reversion.mr_signal
-            self.HR = self.mean_reversion.HR
-            self.rho = self.correlations.rho
+        self.mr_signal = self.mean_reversion.mr_signal
+        self.HR = self.mean_reversion.HR
+        self.rho = self.correlations.rho
         with st.status("Building the portfolio..."):
             self.run()
 
-    def _load(self):
-        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
-        self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
-        self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
-        self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
+    # def _load(self):
+    #     directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
+    #     self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
+    #     self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
+    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
 
     def _process_frame(self, df, name):
         x = df.copy()
@@ -323,16 +320,14 @@ class BuildStrategy(object):
         self.I = I
 
     def _save(self):
-        directory = f"strategies\\{self.folder}\\{self.strategy_name}"
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        self.I.to_csv(f"{directory}\\index.csv")
+        directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
+        self.I.to_csv(f"{directory}/index.csv")
         if self.debug:
-            self.portfolio_composition.to_csv(f"{directory}\\portfolio_composition.csv")
-            self.portfolio.to_csv(f"{directory}\\portfolio.csv")
+            self.portfolio_composition.to_csv(f"{directory}/portfolio_composition.csv")
+            self.portfolio.to_csv(f"{directory}/portfolio.csv")
 
     def run(self):
-        if self.debug: self._load()
+        # if self.debug: self._load()
         self._get_portfolio()
         self._reindex_portfolio()
         self._size_portfolio()

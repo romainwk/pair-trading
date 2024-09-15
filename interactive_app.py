@@ -1,4 +1,4 @@
-# from settings import FILE_PATH
+from settings import URL
 import scipy
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ def get_df(iteration):
     f = lambda x: x[~x.index.duplicated(keep="first")]
     names = [f"{s.get("folder")}/{s.get("strategy_name")}" for s in iteration]
     df = pd.concat(
-        [f(pd.read_csv(f"strategies/{name}/index.csv", index_col=0, parse_dates=True)["Index"]) for name in
+        [f(pd.read_csv(f"{URL}/strategies/{name}/index.csv", index_col=0, parse_dates=True)["Index"]) for name in
          names], axis=1, keys=[n.split("/")[-1] for n in names])
     return df
 
@@ -240,7 +240,11 @@ class WebApp(object):
         )
 
         # universe of eligible pairs are identified by means of long term correlation among each industry group
-        df = pd.read_csv(f"data//S&P500_classification.csv", index_col=0)
+        # data/S&P500_data.csv
+        path = f"{URL}/data/S%26P500_classification.csv"
+        df = pd.read_csv(path, index_col=0)
+        # df = pd.read_csv(f'{url}/data/S&P500_classification.csv', delimiter=",")
+        st.dataframe(df)
         x = df["GIC_sector"].groupby(df.GIC_sector).count()
         fig, axes = plt.subplots(figsize=(10, 4))
         x.sort_values(ascending=False).plot.bar(ax=axes)
@@ -279,7 +283,7 @@ class WebApp(object):
 
         st.markdown(r"""$\beta_{i,j,t}$ is estimated by Kalman filtering:""")
 
-        path = f"strategies/base/baseline"
+        path = f"{URL}/strategies/base/baseline"
         df = pd.read_csv(f"{path}/HR.csv", index_col=0, parse_dates=True, header=[0,1]).iloc[100:]
         df.columns = [f"{i}, {j}" for i, j in zip(df.columns.get_level_values(0), df.columns.get_level_values(1))]
         lineplot(df, default=["BAC, JPM", "BAC, C"], key="kalman")
@@ -381,7 +385,7 @@ class WebApp(object):
 
         st.subheader("Strategy performance")
 
-        path = f"strategies/online_strategy/online_strategy"
+        path = f"{URL}/strategies/online_strategy/online_strategy"
         df = pd.read_csv(f"{path}/index.csv", index_col=0, parse_dates=True)["Index"]
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index, y=df))

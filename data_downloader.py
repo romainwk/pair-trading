@@ -3,7 +3,7 @@ import requests
 import yfinance as yf
 import datetime
 import pandas as pd
-# from settings import FILE_PATH
+from settings import URL
 
 class DownloadIndexDataYahoo(object):
 
@@ -38,7 +38,7 @@ class DownloadIndexDataYahoo(object):
 
     def _save_data(self, index):
         # self.data.to_csv(f"{index}_data.csv")
-        self.classification.to_csv(f"data/{index}_classification.csv")
+        self.classification.to_csv(f"{URL}/data/{index}_classification.csv")
 
     def get_historical_ts(self, index, start, end):
         self._get_index_comp(index)

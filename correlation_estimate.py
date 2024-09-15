@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-# from settings import FILE_PATH
+from settings import URL
 from sklearn.covariance import OAS, LedoitWolf
 import datetime
 from numpy.lib.stride_tricks import sliding_window_view
@@ -162,10 +162,10 @@ class CorrelationEstimator(object):
         return rho
 
     def _save(self):
-        directory = f"strategies\\{self.folder}\\{self.strategy_name}\\"
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        self.rho.to_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv")
+        directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
+        # if not os.path.exists(directory):
+        #     os.makedirs(directory)
+        self.rho.to_csv(f"{directory}/{self.correlation_estimate}_{self.correlation_window}.csv")
 
     def run(self):
         res = Parallel(n_jobs=self.n_parallel_jobs)(delayed(self._get_correlation_cluster)(c) for c in self.clusters)

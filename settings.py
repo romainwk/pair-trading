@@ -1,7 +1,7 @@
 import datetime
 import numpy as np
 
-# FILE_PATH = r'C:/Users/Romain/PycharmProjects/pythonProject'
+URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
 
 def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry
@@ -53,7 +53,7 @@ def get_settings(params):
 iterations1 = [dict(correlation_window=int(w),
                     mean_reversion_window=int(w/2),
                     folder="sensi_to_window_length",
-                    strategy_name=f"W={w}") for w in np.arange(20,250,10)]
+                    strategy_name=f"W_{w}") for w in np.arange(20,250,10)]
 
 iterations2 = [dict(correlation_estimate=s,
                     strategy_name=f"{s}",
@@ -66,32 +66,32 @@ iterations3 = [dict(hedge_ratio_estimate=s,
                     ) for s in ["RollingOLS", "KalmanFilter"]]
 
 iterations4 = [dict(correlation_quantile=q,
-                    strategy_name=f"q={int(q*100)}",
+                    strategy_name=f"q_{int(q*100)}",
                     folder="sensi_to_quantile_threshold",
                     ) for q in [0.25,0.15,0.10,0.05]]
 
 iterations5 = [dict(rebal_frequency=w,
-                    strategy_name=f"Rebal Freq={int(w)}",
+                    strategy_name=f"Rebal Freq_{int(w)}",
                     folder="sensi_to_rebal_freq",
                     ) for w in list(range(5,35,5))]
 
 iterations6 = [dict(max_holding_period=w,
-                    strategy_name=f"Max Holding Period={int(w)}",
+                    strategy_name=f"Max Holding Period_{int(w)}",
                     folder="sensi_to_holding_period",
                     ) for w in [5] + list(range(10,90,10))]
 
 iterations7 = [dict(profit_taking=x,
-                    strategy_name=f"Profit Taking Threshold={int(x*100)}%",
+                    strategy_name=f"Profit Taking Threshold_{int(x*100)}pct",
                     folder="sensi_to_profit_taking",
                     ) for x in [0.025,0.05,0.075,0.10]]
 
 iterations8 = [dict(stop_loss=x,
-                    strategy_name=f"Stop Loss Threshold={int(x*100)}%",
+                    strategy_name=f"Stop Loss Threshold_{int(x*100)}pct",
                     folder="sensi_to_stop_loss",
                     ) for x in [0.025,0.05,0.075,0.10]]
 
 iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
-                    strategy_name=f"Cost (in std of annualised vol)={int(x*100)}%",
+                    strategy_name=f"Cost (in std of realised vol)_{int(x*100)}pct",
                     folder="sensi_to_cost",
                     ) for x in [0, 0.1, 0.5, 1]]
 base = [dict(folder="base",
