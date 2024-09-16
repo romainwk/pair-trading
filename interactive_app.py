@@ -383,12 +383,13 @@ class WebApp(object):
 
         strat_settings = settings.get_settings(dict(strategy_name="online_strategy", folder="online_strategy", debug = True))
         strat_settings.update(options)
-        strategy_runner.strategy_runner(strat_settings)
+        strategy = strategy_runner.strategy_runner(strat_settings)
 
         st.subheader("Strategy performance")
 
-        path = f"{URL}/strategies/online_strategy/online_strategy"
-        df = pd.read_csv(f"{path}/index.csv", index_col=0, parse_dates=True)["Index"]
+        # path = f"{URL}/strategies/online_strategy/online_strategy"
+        # df = pd.read_csv(f"{path}/index.csv", index_col=0, parse_dates=True)["Index"]
+        df = strategy.index
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index, y=df))
         fig.update_layout(
