@@ -20,7 +20,7 @@ class MeanReversionSignal(object):
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
         self.rho=self.correlations.rho
-        with st.status("Generating dislocation/mean-reversion signal"):
+        with st.status(f"Generating dislocation/mean-reversion signal ({self.n_parallel_jobs} parallel jobs)..."):
             self.run()
 
     # def _load(self):
