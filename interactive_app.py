@@ -389,7 +389,7 @@ class WebApp(object):
 
         # path = f"{URL}/strategies/online_strategy/online_strategy"
         # df = pd.read_csv(f"{path}/index.csv", index_col=0, parse_dates=True)["Index"]
-        df = strategy.I["Index"]
+        df = strategy.I
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index, y=df))
         fig.update_layout(
