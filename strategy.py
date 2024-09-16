@@ -129,7 +129,7 @@ class BuildStrategy(object):
 
         if self.load_mr_signal:
             self.mr_signal = pd.read_csv(f"{directory}/MR_{self.hedge_ratio_estimate}_{self.mean_reversion_window}.csv", index_col=0, header=[0, 1],parse_dates=True)
-            self.HR = pd.read_csv(f"{directory}\\HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv", index_col=0, header=[0, 1], parse_dates=True)
+            self.HR = pd.read_csv(f"{directory}/HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv", index_col=0, header=[0, 1], parse_dates=True)
 
         else:
             self.mr_signal = self.mean_reversion.mr_signal
