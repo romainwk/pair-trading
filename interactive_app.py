@@ -375,7 +375,7 @@ class WebApp(object):
                              notional_sizing=0,  # TargetNotional, TargetVol
                              leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
                              transaction_cost=0,
-                             n_parallel_jobs=2,
+                             n_parallel_jobs=1,
                              )
         options = {}
         for param, choice in param_choices.items():
