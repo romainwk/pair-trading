@@ -335,7 +335,7 @@ class BuildStrategy(object):
         self.I.to_csv(f"{directory}/index.csv")
         # if self.save_portfolio:
         self.portfolio_composition.to_csv(f"{directory}/portfolio_composition.csv")
-        self.portfolio.to_csv(f"{directory}/portfolio.csv")
+        # self.portfolio.to_csv(f"{directory}/portfolio.csv")
 
     def run(self):
         self._load()
