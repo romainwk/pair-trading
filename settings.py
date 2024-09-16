@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 
+# URL = r"C:\Users\Romain\PycharmProjects\pythonProject"
 URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
 
 def get_settings(params):
@@ -35,8 +36,11 @@ def get_settings(params):
                              # multiple of running std. e.g. for a stock running 15% vol annualised, charges 10 bps entry/exit (one way)
                              )
 
-    computation_settings = dict(n_parallel_jobs=8,
-                                debug=False,
+    computation_settings = dict(n_parallel_jobs=16,
+                                # debug=False,
+                                load_correlations=True,
+                                load_hedge_ratios=True,
+                                load_mr_signal=True,
                                 folder="base",
                                 )
 
@@ -94,6 +98,25 @@ iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
                     strategy_name=f"Cost_(in_std_of_realised_vol)_{int(x*100)}pct",
                     folder="sensi_to_cost",
                     ) for x in [0, 0.1, 0.5, 1]]
+
+iterations_correlations= [dict(correlation_estimate=s,
+                               correlation_window=int(w),
+                               strategy_name="online_strategy",
+                               folder="online_strategy",
+                                ) for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"] for w in np.arange(80,250,10)]
+
+iterations_hedge_ratios= [dict(hedge_ratio_estimate=s,
+                               correlation_window=int(w),
+                               strategy_name="online_strategy",
+                               folder="online_strategy",
+                                ) for s in ["RollingOLS", "KalmanFilter"] for w in np.arange(80,250,10)]
+
+iterations_mr_signal= [dict(hedge_ratio_estimate=s,
+                               mean_reversion_window=int(w),
+                               strategy_name="online_strategy",
+                               folder="online_strategy",
+                                ) for s in ["RollingOLS", "KalmanFilter"] for w in [20,30,45,60]]
+
 base = [dict(folder="base",
              strategy_name="baseline",
              debug=False,

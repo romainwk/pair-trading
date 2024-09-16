@@ -348,9 +348,9 @@ class WebApp(object):
 
         param_choices = dict(correlation_estimate=("SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"),
                              hedge_ratio_estimate=("RollingOLS", "KalmanFilter"),
-                             correlation_window=(60,90,120,150),
+                             correlation_window=tuple(int(x) for x in np.arange(80,250,10)), #(60,90,120,150),
                              correlation_quantile=(0.05, 0.10, 0.15, 0.20),
-                             mean_reversion_window=(10,20,30,45,60),
+                             mean_reversion_window=(20,30,45,60),
                              rebal_frequency=(5,10,15,20,),  # how frequently a new set of pairs is considered
                              max_holding_period=(1,5,10,15,20),
                              profit_taking=(None, 0.01,0.02,0.03,0.04,0.05),

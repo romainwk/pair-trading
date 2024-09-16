@@ -19,13 +19,17 @@ class MeanReversionSignal(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-        self.rho=self.correlations.rho
-        with st.status(f"Generating dislocation/mean-reversion signal ({self.n_parallel_jobs} parallel jobs)..."):
-            self.run()
+        # self.rho=self.correlations.rho
+        if not (self.load_mr_signal and self.load_hedge_ratios):
+            with st.status(f"Generating dislocation/mean-reversion signal ({self.n_parallel_jobs} parallel jobs)..."):
+                self.run()
 
-    # def _load(self):
-    #     directory = f"{FILE_PATH}\\strategies\\{self.strategy_name}"
-    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[1,2,3])
+    def _load(self):
+        if self.load_correlations:
+            directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
+            self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1,2])
+        else:
+            self.rho = self.correlations.rho
 
     def _get_returns(self):
         price = self.data.price
@@ -95,15 +99,16 @@ class MeanReversionSignal(object):
 
     def _save(self):
         directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
-        self.mr_signal.to_csv(f"{directory}/mean_reversion_signal.csv")
-        self.HR.to_csv(f"{directory}/HR.csv")
+        self.HR.to_csv(f"{directory}/HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv")
+        self.mr_signal.to_csv(f"{directory}/MR_{self.hedge_ratio_estimate}_{self.mean_reversion_window}.csv")
 
     def run(self):
+        self._load()
         self._get_returns()
         self._get_hedge_ratio()
         self._get_spread()
         self._get_mean_reversion_signal()
-        if self.debug: self._save()
+        self._save()
 
 class BuildStrategy(object):
     def __init__(self, settings):
@@ -112,17 +117,23 @@ class BuildStrategy(object):
 
         self.trades_schedule = self.schedule.trades_schedule
         self.rebal_dates = self.schedule.rebal_dates
-        self.mr_signal = self.mean_reversion.mr_signal
-        self.HR = self.mean_reversion.HR
-        self.rho = self.correlations.rho
         with st.status("Building the portfolio..."):
             self.run()
 
-    # def _load(self):
-    #     directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
-    #     self.mr_signal = pd.read_csv(f"{directory}\\mean_reversion_signal.csv", index_col=0, header=[0,1], parse_dates=True)
-    #     self.HR = pd.read_csv(f"{directory}\\HR.csv", index_col=0, header=[0,1], parse_dates=True)
-    #     self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
+    def _load(self):
+        directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
+
+        if self.load_correlations:
+            self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
+        else: self.rho = self.correlations.rho
+
+        if self.load_mr_signal:
+            self.mr_signal = pd.read_csv(f"{directory}/MR_{self.hedge_ratio_estimate}_{self.mean_reversion_window}.csv", index_col=0, header=[0, 1],parse_dates=True)
+            self.HR = pd.read_csv(f"{directory}\\HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv", index_col=0, header=[0, 1], parse_dates=True)
+
+        else:
+            self.mr_signal = self.mean_reversion.mr_signal
+            self.HR = self.mean_reversion.HR
 
     def _process_frame(self, df, name):
         x = df.copy()
@@ -322,12 +333,12 @@ class BuildStrategy(object):
     def _save(self):
         directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
         self.I.to_csv(f"{directory}/index.csv")
-        if self.debug:
-            self.portfolio_composition.to_csv(f"{directory}/portfolio_composition.csv")
-            self.portfolio.to_csv(f"{directory}/portfolio.csv")
+        # if self.save_portfolio:
+        self.portfolio_composition.to_csv(f"{directory}/portfolio_composition.csv")
+        self.portfolio.to_csv(f"{directory}/portfolio.csv")
 
     def run(self):
-        # if self.debug: self._load()
+        self._load()
         self._get_portfolio()
         self._reindex_portfolio()
         self._size_portfolio()

@@ -18,8 +18,9 @@ class CorrelationEstimator(object):
         self.clusters = self.data.clusters
         self.trading_dates = self.schedule.trading_dates
         self.rebal_dates = self.schedule.rebal_dates
-        with st.status(f"Estimating correlations ({self.n_parallel_jobs} parallel jobs)..."):
-            self.run()
+        if not self.load_correlations:
+            with st.status(f"Estimating correlations ({self.n_parallel_jobs} parallel jobs)..."):
+                self.run()
 
     def _handle_missing_data(self, A):
         A = A.dropna(how="all", axis=1)
@@ -174,4 +175,4 @@ class CorrelationEstimator(object):
         rho.index.names = [self.cluster_by, "Date", "Pair1", "Pair2"]
         rho = self._filter_across_clusters(rho)
         self.rho= self._format(rho)
-        if self.debug: self._save()
+        if self.save_correlations: self._save()
