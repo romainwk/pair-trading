@@ -434,26 +434,26 @@ class WebApp(object):
         st.pyplot(fig)
 
         # # portfolio
-        # def _count_exit(field):
-        #     x = df.groupby(["Date", "Pair1", "Pair2"])[field].sum()
-        #     return x[x > 0].count()
-        #
-        # df = pd.read_csv(f"{path}/portfolio.csv", index_col=0, parse_dates=True)
-        #
-        # exits = {"Take Profit trigger":_count_exit("ProfitTaking"),
-        # "Stop Loss trigger": _count_exit("StopLoss"),
-        #  "Exit Signal": _count_exit("ExitSignal"),
-        #  "MaxHoldingPeriod": _count_exit("MaxHoldingPeriod"),
-        #
-        #  }
-        #
-        # exits = pd.Series(exits).sort_values(ascending=False)
-        # fig = go.Figure()
-        # fig.add_trace(go.Bar(x=exits.index, y=exits))
-        # fig.update_layout(
-        #     title="Trade Exit breakdown"
-        # )
-        # st.plotly_chart(fig)
+        def _count_exit(field):
+            x = df.groupby(["Date", "Pair1", "Pair2"])[field].sum()
+            return x[x > 0].count()
+
+        df = strategy.portfolio
+
+        exits = {"Take Profit trigger":_count_exit("ProfitTaking"),
+        "Stop Loss trigger": _count_exit("StopLoss"),
+         "Exit Signal": _count_exit("ExitSignal"),
+         "MaxHoldingPeriod": _count_exit("MaxHoldingPeriod"),
+
+         }
+
+        exits = pd.Series(exits).sort_values(ascending=False)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=exits.index, y=exits))
+        fig.update_layout(
+            title="Trade Exit breakdown"
+        )
+        st.plotly_chart(fig)
 
         st.subheader("Portfolio view")
         st.dataframe(df.iloc[-50:])
