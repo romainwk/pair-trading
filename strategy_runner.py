@@ -16,8 +16,8 @@ def strategy_runner(settings):
     settings.update(correlations=correlations)
     mean_reversion = strategy.MeanReversionSignal(settings)
     settings.update(mean_reversion=mean_reversion)
-    strategy.BuildStrategy(settings)
-    return strategy
+    portfolio = strategy.BuildStrategy(settings)
+    return portfolio
 
 def main():
     strategies = settings.strategies_to_run
