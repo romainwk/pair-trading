@@ -401,7 +401,8 @@ class WebApp(object):
         st.dataframe(perf_metrics)
 
         st.subheader("Strategy features")
-        df = pd.read_csv(f"{path}/portfolio_composition.csv", index_col=0, parse_dates=True)
+        # df = pd.read_csv(f"{path}/portfolio_composition.csv", index_col=0, parse_dates=True)
+        df = strategy.portfolio_composition
         x= pd.DataFrame(df["GIC_sector"].value_counts()).rename(dict(count="Number of pairs traded"))
 
         fig = go.Figure()
