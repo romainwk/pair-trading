@@ -121,10 +121,10 @@ class BuildStrategy(object):
             self.run()
 
     def _load(self):
-        directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
+        directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
 
         if self.load_correlations:
-            self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
+            self.rho = pd.read_csv(f"{directory}/{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1, 2], parse_dates=True)
         else: self.rho = self.correlations.rho
 
         if self.load_mr_signal:
