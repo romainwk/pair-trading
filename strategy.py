@@ -26,8 +26,8 @@ class MeanReversionSignal(object):
 
     def _load(self):
         if self.load_correlations:
-            directory = f"{URL}\\strategies\\{self.folder}\\{self.strategy_name}"
-            self.rho = pd.read_csv(f"{directory}\\{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1,2])
+            directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
+            self.rho = pd.read_csv(f"{directory}/{self.correlation_estimate}_{self.correlation_window}.csv", index_col=[0,1,2])
         else:
             self.rho = self.correlations.rho
 
