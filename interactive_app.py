@@ -412,7 +412,8 @@ class WebApp(object):
         )
         st.plotly_chart(fig)
 
-        df["Pair"] = [f"{x}, {y}" for x, y in zip(df["Pair1"], df["Pair2"])]
+        # df["Pair"] = [f"{x}, {y}" for x, y in zip(df["Pair1"], df["Pair2"])]
+        df["Pair"] = [f"{x}, {y}" for x, y in zip(df.index.get_level_values(1), df.index.get_level_values(2))]
         top = df["Pair"].groupby(df.Pair).count().sort_values(ascending=False).iloc[:10]
 
         fig = go.Figure()
