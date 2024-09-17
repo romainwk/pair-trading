@@ -7,6 +7,7 @@ import numpy as np
 import plotly.graph_objects as go
 import strategy_runner
 import settings
+import matplotlib.ticker as mtick
 
 def lineplot(df, default, key, type="Scatter"):
     clist = df.columns.tolist()
@@ -89,6 +90,17 @@ class WebApp(object):
 
     def sensitivity_analysis(self):
 
+        def _sr(df, w):
+            log_r = np.log(df.div(df.shift(w))).mean()
+            vol = np.log(df.div(df.shift(w))).std()
+            sr = log_r / vol * np.sqrt(252 / w)
+            return sr
+
+        def _annualised_ret(df):
+            T = (df.index[-1] - df.index[0]).days / 365.25
+            r = (df.iloc[-1] / df.iloc[0]) ** (1 / T) - 1
+            return r
+
         st.header("Parameter Sensitivity")
 
         st.markdown(
@@ -106,12 +118,27 @@ class WebApp(object):
 
         # Rolling window
         st.subheader(r"Sensitivity to the rolling windows " + r"$T_{L}$" + ", " + "$T_{S}$")
-        st.write(r"$T_{L}$" + " is used to estimate the correlation matrix $\hat{\Sigma}$. To remove a degree of freedom, I fix the dislocation/mean-reversion signal $T^{S}=1/2T^{L}$")
-
+        st.write(r"$T_{L}$ =" + " long window used to estimate the correlation matrix $\hat{\Sigma}_t$")
+        st.write(r"$T_{S}$ = short window used to estimate dislocation/mean-reversion")
+        st.write("$T^{S}=kT^{L}, k \in [0,1]$")
         df = get_df(iteration=settings.iterations1)
-        lineplot(df, default=df.columns[::4],key ="Window")
 
-        perf_metrics = performance_metrics(df)
+        # show sensitivity tbl
+        pd.options.display.float_format = "{:,.2f}".format
+        st.write(r"**Sharpe Ratio as a function of $T_{L}$ and $k$**")
+        process_f = lambda df, k: df[[f"T_L_{w}_T_S_{int(w*k)}" for w in np.arange(20,280,20)]].rename({f"T_L_{w}_T_S_{int(w*k)}": f"T_L_{w}" for w in np.arange(20,280,20)}, axis=1)
+        tbl = {k: _sr(process_f(df, k), w=1) for k in  [0.25,0.50,0.75]}
+        tbl = pd.DataFrame(tbl).T.round(2)
+        # st.dataframe(tbl)
+        st.dataframe(tbl.round(2).style.background_gradient().format("{:.2}"))
+
+        k = 0.50
+        k = st.selectbox("Select the value of $k$", (0.25,0.50,0.75), index=1)
+
+        sub_df = df[[f"T_L_{w}_T_S_{int(w*k)}" for w in np.arange(20,280,20)]]
+        lineplot(sub_df, default=sub_df.columns,key ="Window")
+
+        perf_metrics = performance_metrics(sub_df)
         lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"],key ="Window Perf Metrics", type="Bar")
         st.dataframe(perf_metrics)
 
@@ -187,7 +214,16 @@ class WebApp(object):
         key = "cost"
         df = get_df(iteration=settings.iterations9)
         perf_metrics = performance_metrics(df)
+        st.dataframe(perf_metrics)
         lineplot(perf_metrics.T, default=default, key=key, type="Bar")
+
+        # cost_var = [0, 0.0025, 0.005, 0.01, 0.015]
+        # cost_var = [round(c*100*100) for c in cost_var]
+        # process_df = lambda df, l: df[[f"Cost_{c}bps_leverage_{l}" for c in cost_var]].rename({f"Cost_{round(c)}bps_leverage_{l}": c for c in cost_var}, axis=1)
+        # tbl = {l: _annualised_ret(process_df(df, l)) for l in [0.5, 1, 1.5, 2, 4]}
+        # tbl = pd.DataFrame(tbl).T.round(2)
+        # # st.dataframe(tbl)
+        # st.dataframe(tbl.round(2))
 
         # perf_metrics = performance_metrics(df)
         # lineplot(perf_metrics.T, default=["Sharpe Ratio (weekly)", "Calmar Ratio"], key=key, type="Bar")
@@ -352,36 +388,37 @@ class WebApp(object):
                              correlation_quantile=(0.05, 0.10, 0.15, 0.20),
                              mean_reversion_window=(20,30,45,60),
                              rebal_frequency=(5,10,15,20,),  # how frequently a new set of pairs is considered
-                             max_holding_period=(1,5,10,15,20),
-                             profit_taking=(None, 0.01,0.02,0.03,0.04,0.05),
-                             stop_loss=(None, 0.01,0.02,0.03,0.04,0.05),
+                             max_holding_period=(5,10,15,20, 40, 60, 80),
+                             profit_taking=(None, 0.01,0.025,0.05,0.075, 0.10),
+                             stop_loss=(None, 0.01,0.025,0.05,0.075, 0.10),
 
                              notional_sizing=("TargetNotional", "TargetVol"),  # TargetNotional, TargetVol
                              leverage=(0.5,1,2,4),  # gross leverage of L/S strategy if sizing by TargetNotional
-                             transaction_cost=(0, 0.5 * 1 / np.sqrt(252),  1 / np.sqrt(252), 2 / np.sqrt(252)),
-                             n_parallel_jobs=(1,4,8,16),
+                             transaction_cost=(0, 0.0025, 0.005, 0.01, 0.015),
+                             # n_parallel_jobs=(1,4,8,16),
                              )
 
         default =  dict(correlation_estimate=1,
                              hedge_ratio_estimate=1,
-                             correlation_window=1,
+                             correlation_window=4,
                              correlation_quantile=1,
-                             mean_reversion_window=3,
+                             mean_reversion_window=0,
                              rebal_frequency=0,  # how frequently a new set of pairs is considered
-                             max_holding_period=2,
-                             profit_taking=0,
-                             stop_loss=0,
+                             max_holding_period=1,
+                             profit_taking=3,
+                             stop_loss=3,
 
                              notional_sizing=0,  # TargetNotional, TargetVol
                              leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
                              transaction_cost=0,
-                             n_parallel_jobs=1,
+                             # n_parallel_jobs=1,
                              )
         options = {}
         for param, choice in param_choices.items():
             options[param] = st.selectbox(param, choice, index=default[param])
 
-        strat_settings = settings.get_settings(dict(strategy_name="online_strategy", folder="online_strategy", debug = True))
+        strat_settings = settings.get_settings(dict(strategy_name="online_strategy", folder="online_strategy",
+                                                    load_correlations=True, load_hedge_ratios=True, load_mr_signal=True,))
         strat_settings.update(options)
         strategy = strategy_runner.strategy_runner(strat_settings)
 
@@ -397,8 +434,64 @@ class WebApp(object):
         )
         st.plotly_chart(fig)
 
+        sr_per_year = (df.pct_change().groupby(df.index.year).mean()/df.pct_change().groupby(df.index.year).std())*np.sqrt(252)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=sr_per_year.index, y=sr_per_year))
+        fig.update_layout(
+            title="Sharpe Ratio per year"
+        )
+        st.plotly_chart(fig)
+
+        st.subheader("Returns statistics")
         perf_metrics = performance_metrics(pd.DataFrame(df).rename({0:"Index"},axis=1))
-        st.dataframe(perf_metrics)
+        st.dataframe(perf_metrics.T)
+
+        st.subheader("Trades statistics")
+        p = strategy.portfolio
+        p_exit = p[p.ExitDate]
+        p_exit = p_exit[["Pair", "CumPairPnL"]]
+
+        avg_pair_pnl = p_exit.groupby(p_exit.Pair).mean().sort_values(by="CumPairPnL")
+        n = 10
+        n = st.selectbox("Select top/bottom $n$ performer", (5,10,20), index=1)
+
+        top_bottom_performer = 100*pd.concat([avg_pair_pnl.iloc[:n], avg_pair_pnl.iloc[-n:]])
+
+        fig, axes = plt.subplots(figsize=(10, 4))
+        top_bottom_performer["CumPairPnL"].plot.bar(ax=axes, alpha=0.75, color="darkblue")
+        axes.set_title(f"Average trade return of top/bottom {n} performers")
+        axes.yaxis.set_major_formatter(mtick.PercentFormatter())
+        st.pyplot(fig)
+
+        st.markdown("**Statistics per trade**")
+        trade_pnl = p_exit.CumPairPnL
+        trade_pnl = trade_pnl[trade_pnl.abs()>0]
+        before_exit = p.query("Exited==False")
+        trade_duration = before_exit.groupby([before_exit.index.get_level_values(1), before_exit.index.get_level_values(2), before_exit.RollNumber])["Correlation"].count()
+
+        trade_stats = pd.Series({"Median PnL":trade_pnl.median()*100,
+                                 "Avg PnL":trade_pnl.mean()*100,
+                                 "Max PnL":trade_pnl.max()*100,
+                                 "Min PnL":trade_pnl.min()*100,
+                                 "Median Trade Duration": trade_duration.median(),
+                                 "Mean Trade Duration": trade_duration.mean(),
+                                 })
+
+        trade_stats = pd.DataFrame((trade_stats).round(2)).rename({0:"Pair Trade statistics"}, axis=1)
+
+        st.dataframe(trade_stats)
+
+        fig, axes = plt.subplots(figsize=(10, 4))
+        axes.set_title(f"Distribution of trade duration")
+        trade_duration.hist(bins=10)
+        st.pyplot(fig)
+
+        # fig = go.Figure()
+        # fig.add_trace(go.Bar(x=top_bottom_performer.index, y=top_bottom_performer["CumPairPnL"]))
+        # fig.update_layout(
+        #     title=f"Average trade return of top/bottom {n} performers"
+        # )
+        # st.plotly_chart(fig)
 
         st.subheader("Strategy features")
         # df = pd.read_csv(f"{path}/portfolio_composition.csv", index_col=0, parse_dates=True)
@@ -406,9 +499,9 @@ class WebApp(object):
         x= pd.DataFrame(df["GIC_sector"].value_counts()).rename(dict(count="Number of pairs traded"))
 
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=x.index, y=x["count"]))
+        fig.add_trace(go.Bar(x=x.index, y=x["count"]/x["count"].sum()))
         fig.update_layout(
-            title="Number of pair traded per sector"
+            title="Number of pair traded per sector (% total trades)"
         )
         st.plotly_chart(fig)
 
@@ -422,6 +515,8 @@ class WebApp(object):
             title="Top 10 most traded pairs"
         )
         st.plotly_chart(fig)
+
+        st.subheader("Signal Statistics")
 
         fig, axes = plt.subplots(figsize=(10, 4))
         df["HR"].hist(ax=axes, bins=250, alpha=0.75, color="darkblue")
@@ -451,7 +546,7 @@ class WebApp(object):
         fig = go.Figure()
         fig.add_trace(go.Bar(x=exits.index, y=exits))
         fig.update_layout(
-            title="Trade Exit breakdown"
+            title="Exit Signal"
         )
         st.plotly_chart(fig)
 
@@ -461,13 +556,14 @@ class WebApp(object):
 
     def run(self):
 
-        pg = st.navigation([st.Page(self.methodology),
-                            st.Page(self.interactive_strategy),
-                            st.Page(self.sensitivity_analysis),
-                            ],
-                           )
-
-        pg.run()
+        # pg = st.navigation([st.Page(self.methodology),
+        #                     st.Page(self.interactive_strategy),
+        #                     st.Page(self.sensitivity_analysis),
+        #                     ],
+        #                    )
+        # self.interactive_strategy()
+        self.sensitivity_analysis()
+        # pg.run()
 
 def main():
     WebApp()

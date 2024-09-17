@@ -166,7 +166,8 @@ class CorrelationEstimator(object):
         directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
         # if not os.path.exists(directory):
         #     os.makedirs(directory)
-        self.rho.to_csv(f"{directory}/{self.correlation_estimate}_{self.correlation_window}.csv")
+        if self.load_correlations:
+            self.rho.to_csv(f"{directory}/{self.correlation_estimate}_{self.correlation_window}.csv")
 
     def run(self):
         res = Parallel(n_jobs=self.n_parallel_jobs)(delayed(self._get_correlation_cluster)(c) for c in self.clusters)
@@ -175,4 +176,4 @@ class CorrelationEstimator(object):
         rho.index.names = [self.cluster_by, "Date", "Pair1", "Pair2"]
         rho = self._filter_across_clusters(rho)
         self.rho= self._format(rho)
-        if self.save_correlations: self._save()
+        self._save()

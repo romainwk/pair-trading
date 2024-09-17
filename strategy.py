@@ -99,8 +99,9 @@ class MeanReversionSignal(object):
 
     def _save(self):
         directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
-        self.HR.to_csv(f"{directory}/HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv")
-        self.mr_signal.to_csv(f"{directory}/MR_{self.hedge_ratio_estimate}_{self.mean_reversion_window}.csv")
+        if self.load_hedge_ratios:
+            self.HR.to_csv(f"{directory}/HR_{self.hedge_ratio_estimate}_{self.correlation_window}.csv")
+            self.mr_signal.to_csv(f"{directory}/MR_{self.hedge_ratio_estimate}_{self.mean_reversion_window}.csv")
 
     def run(self):
         self._load()
@@ -263,7 +264,7 @@ class BuildStrategy(object):
     def _add_entry_exit_costs(self):
         def _add_asset_volatility(p):
             s1 = self.data.price.copy()
-            s1 = np.log(s1.div(s1.shift(1))).ewm(halflife=self.correlation_window).std()*np.sqrt(252)
+            s1 = np.log(s1.div(s1.shift(1))).ewm(halflife=self.correlation_window).std()#*np.sqrt(252)
             s1 = s1.stack()
             s1.index.names = ["Date", "Pair1"]
             s1.name = "RealisedVolPair1"
@@ -277,9 +278,9 @@ class BuildStrategy(object):
 
         p = self.portfolio
         p = _add_asset_volatility(p)
-
-        p["EntryCostPair1"] = self.transaction_cost * p["RealisedVolPair1"] * p["EntryDate"].shift(1).fillna(0)
-        p["EntryCostPair2"] = self.transaction_cost * p["RealisedVolPair2"] * p["EntryDate"].shift(1).fillna(0)
+        # charge round trip at entry to simplify
+        p["EntryCostPair1"] = self.transaction_cost * p["RealisedVolPair1"] * p["EntryDate"].shift(1).fillna(0) * 2
+        p["EntryCostPair2"] = self.transaction_cost * p["RealisedVolPair2"] * p["EntryDate"].shift(1).fillna(0) * 2
 
         p["NetPnLPair"] = p["PnLPair"] - abs(p["UnitPair1"]) * p["EntryCostPair1"] - abs(p["UnitPair2"]) * p["EntryCostPair2"]
         p["NetPnLPairWithExit"] = p["NetPnLPair"] * (1 - p["Exited"].shift(1)).fillna(0)
@@ -332,6 +333,8 @@ class BuildStrategy(object):
 
     def _save(self):
         directory = f"{URL}/strategies/{self.folder}/{self.strategy_name}"
+        # if not os.path.exists(directory):
+        #     os.makedirs(directory)
         self.I.to_csv(f"{directory}/index.csv")
         # if self.save_portfolio:
         # self.portfolio_composition.to_csv(f"{directory}/portfolio_composition.csv")

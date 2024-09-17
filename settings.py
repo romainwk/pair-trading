@@ -32,15 +32,15 @@ def get_settings(params):
                              leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
                              target_vol_level=0.05,  # drives leverage of the L/S strategy if sizing by TargetVol
 
-                             transaction_cost=0.1 * 1 / np.sqrt(252)*0,
+                             transaction_cost=0,
                              # multiple of running std. e.g. for a stock running 15% vol annualised, charges 10 bps entry/exit (one way)
                              )
 
     computation_settings = dict(n_parallel_jobs=16,
                                 # debug=False,
-                                load_correlations=True,
-                                load_hedge_ratios=True,
-                                load_mr_signal=True,
+                                load_correlations=False,
+                                load_hedge_ratios=False,
+                                load_mr_signal=False,
                                 folder="base",
                                 )
 
@@ -55,9 +55,9 @@ def get_settings(params):
 # iterations = dict(correlation_estimate=["EWMCorrelation", "SampleCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"])
 
 iterations1 = [dict(correlation_window=int(w),
-                    mean_reversion_window=int(w/2),
+                    mean_reversion_window=int(w*k),
                     folder="sensi_to_window_length",
-                    strategy_name=f"W_{w}") for w in np.arange(20,250,10)]
+                    strategy_name=f"T_L_{w}_T_S_{int(w*k)}") for w in np.arange(20,280,20) for k in [0.25,0.50,0.75]] # np.arange(20,280,20)
 
 iterations2 = [dict(correlation_estimate=s,
                     strategy_name=f"{s}",
@@ -94,10 +94,12 @@ iterations8 = [dict(stop_loss=x,
                     folder="sensi_to_stop_loss",
                     ) for x in [0.025,0.05,0.075,0.10]]
 
-iterations9 = [dict(transaction_cost=x * 1 / np.sqrt(252),
-                    strategy_name=f"Cost_(in_std_of_realised_vol)_{int(x*100)}pct",
+iterations9 = [dict(transaction_cost=x,
+                    notional_sizing="TargetNotional",  # TargetNotional, TargetVol
+                    leverage=2,
+                    strategy_name=f"Cost_{int(x*100*100)}bps_leverage_{leverage}",
                     folder="sensi_to_cost",
-                    ) for x in [0, 0.1, 0.5, 1]]
+                    ) for x in [0, 0.0025, 0.005, 0.01, 0.015] for leverage in [0.50, 1, 1.5, 2, 4]]
 
 iterations_correlations= [dict(correlation_estimate=s,
                                correlation_window=int(w),
@@ -122,8 +124,9 @@ test = [dict(folder="online_strategy",
              transaction_cost=0,
              )]
 
-iterations=test
-# for i in range(2,9):
+iterations=iterations1
+# iterations=[]
+# for i in range(1,9):
 #     iterations+=locals()[f"iterations{i}"]
 
 strategies_to_run = [get_settings(params) for params in iterations]
