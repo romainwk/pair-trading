@@ -1,3 +1,5 @@
+from unicodedata import normalize
+
 from settings import URL
 import scipy
 import streamlit as st
@@ -515,7 +517,7 @@ class WebApp(object):
 
         fig, axes = plt.subplots(figsize=(6, 4))
         axes.set_title(f"Distribution of trade duration")
-        (trade_duration/trade_duration.sum()).hist(bins=10)
+        trade_duration.hist(bins=10)
         st.pyplot(fig)
 
         # fig = go.Figure()
@@ -575,6 +577,7 @@ class WebApp(object):
          }
 
         exits = pd.Series(exits).sort_values(ascending=False)
+        exits = exits/exits.sum()
         fig = go.Figure()
         fig.add_trace(go.Bar(x=exits.index, y=exits))
         fig.update_layout(
