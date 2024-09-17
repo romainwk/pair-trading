@@ -8,7 +8,7 @@ def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry
                            min_stock_per_cluster=5,
                            correlation_estimate="EWMCorrelation",  # SampleCorrelation, EWMCorrelation, LedoitWolfShrinkage, OracleApproximatingShrinkage
-                           correlation_window=90,  # sliding window or half-life in the case of EWMCorrelation
+                           correlation_window=120,  # sliding window or half-life in the case of EWMCorrelation
                            correlation_quantile=0.10,  # top (1-q) pairs pass the correlation screen
                            hedge_ratio_estimate="KalmanFilter", # RollingOLS, KalmanFilter
                            mean_reversion_window=45,
@@ -24,8 +24,8 @@ def get_settings(params):
                              index_universe="S&P500",
                              rebal_frequency=5,  # how frequently a new set of pairs is considered
                              max_holding_period=10,
-                             profit_taking=None,
-                             stop_loss=None,
+                             profit_taking=0.05,
+                             stop_loss=0.05,
                              start_value=100,
 
                              notional_sizing="TargetNotional",  # TargetNotional, TargetVol
@@ -96,7 +96,7 @@ iterations8 = [dict(stop_loss=x,
 
 iterations9 = [dict(transaction_cost=x,
                     notional_sizing="TargetNotional",  # TargetNotional, TargetVol
-                    leverage=2,
+                    leverage=leverage,
                     strategy_name=f"Cost_{int(x*100*100)}bps_leverage_{leverage}",
                     folder="sensi_to_cost",
                     ) for x in [0, 0.0025, 0.005, 0.01, 0.015] for leverage in [0.50, 1, 1.5, 2, 4]]
@@ -124,9 +124,9 @@ test = [dict(folder="online_strategy",
              transaction_cost=0,
              )]
 
-iterations=iterations1
+iterations=test
 # iterations=[]
-# for i in range(1,9):
+# for i in range(1,10):
 #     iterations+=locals()[f"iterations{i}"]
 
 strategies_to_run = [get_settings(params) for params in iterations]
