@@ -517,7 +517,7 @@ class WebApp(object):
 
         fig, axes = plt.subplots(figsize=(6, 4))
         axes.set_title(f"Distribution of trade duration")
-        trade_duration.hist(bins=10)
+        trade_duration.hist(bins=10, alpha=0.75, color="darkblue", normed=True)
         st.pyplot(fig)
 
         # fig = go.Figure()
