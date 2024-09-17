@@ -491,6 +491,7 @@ class WebApp(object):
         st.pyplot(fig)
 
         st.markdown("**Statistics per trade**")
+        st.markdown("PnL in bps")
         trade_pnl = p_exit.CumPairPnL
         trade_pnl = trade_pnl[trade_pnl.abs()>0]
         before_exit = p.query("Exited==False")
@@ -514,7 +515,7 @@ class WebApp(object):
 
         fig, axes = plt.subplots(figsize=(6, 4))
         axes.set_title(f"Distribution of trade duration")
-        trade_duration.hist(bins=10)
+        (trade_duration/trade_duration.sum()).hist(bins=10)
         st.pyplot(fig)
 
         # fig = go.Figure()
