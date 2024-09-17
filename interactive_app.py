@@ -556,14 +556,14 @@ class WebApp(object):
 
     def run(self):
 
-        # pg = st.navigation([st.Page(self.methodology),
-        #                     st.Page(self.interactive_strategy),
-        #                     st.Page(self.sensitivity_analysis),
-        #                     ],
-        #                    )
+        pg = st.navigation([st.Page(self.methodology),
+                            st.Page(self.interactive_strategy),
+                            st.Page(self.sensitivity_analysis),
+                            ],
+                           )
         # self.interactive_strategy()
-        self.sensitivity_analysis()
-        # pg.run()
+        # self.sensitivity_analysis()
+        pg.run()
 
 def main():
     WebApp()
