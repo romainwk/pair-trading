@@ -322,7 +322,7 @@ class BuildStrategy(object):
             active_trades = active_trades.join(x, "RollNumber", how="left")
             active_trades["NotionalDailyPnL"] = active_trades["Notional"]*active_trades["NetPnLPairWithExit"]
 
-            pnl = active_trades["NotionalDailyPnL"].groupby("Date").sum()
+            pnl = (active_trades["NotionalDailyPnL"].groupby("Date").sum()).cumsum()
 
             I = pd.concat([I, I.loc[tm1] + pnl])
 

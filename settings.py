@@ -117,12 +117,12 @@ iterations_mr_signal= [dict(hedge_ratio_estimate=s,
                                folder="online_strategy",
                                 ) for s in ["RollingOLS", "KalmanFilter"] for w in [20,30,45,60]]
 
-base = [dict(folder="base",
-             strategy_name="baseline",
-             debug=False,
+test = [dict(folder="online_strategy",
+             strategy_name="online_strategy",
+             transaction_cost=0,
              )]
 
-iterations=base
+iterations=test
 # for i in range(2,9):
 #     iterations+=locals()[f"iterations{i}"]
 
