@@ -510,7 +510,7 @@ class WebApp(object):
 
         trade_stats = pd.DataFrame((trade_stats).round(2)).rename({0:"Pair Trade statistics"}, axis=1)
 
-        st.dataframe(trade_stats.T)
+        st.dataframe(trade_stats.T.round(2))
         # fig, axes = plt.subplots(figsize=(6, 4))
         # axes.set_title(f"Distribution of PnL per trade")
         # trade_pnl.hist(bins=100)
