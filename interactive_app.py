@@ -505,7 +505,7 @@ class WebApp(object):
                                  "Min PnL":trade_pnl.min()*100,
                                  "Median Trade Duration": trade_duration.median(),
                                  "Mean Trade Duration": trade_duration.mean(),
-                                 "Proportion winning trades":f"{len(trade_pnl[trade_pnl>0])/len(trade_pnl)*100}%",
+                                 "Proportion winning trades":f"{int(len(trade_pnl[trade_pnl>0])/len(trade_pnl)*100)}%",
                                  })
 
         trade_stats = pd.DataFrame((trade_stats).round(2)).rename({0:"Pair Trade statistics"}, axis=1)
