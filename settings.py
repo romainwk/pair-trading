@@ -1,8 +1,8 @@
 import datetime
 import numpy as np
 
-URL = r"C:\Users\Romain\PycharmProjects\pythonProject"
-# URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
+# URL = r"C:\Users\Romain\PycharmProjects\pythonProject"
+URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
 
 def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry
