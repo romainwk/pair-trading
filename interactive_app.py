@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import strategy_runner
 import settings
 import matplotlib.ticker as mtick
+import seaborn as sns
 
 def lineplot(df, default, key, type="Scatter"):
     clist = df.columns.tolist()
@@ -498,35 +499,33 @@ class WebApp(object):
         trade_pnl = trade_pnl[trade_pnl.abs()>0]
         before_exit = p.query("Exited==False")
         trade_duration = before_exit.groupby([before_exit.index.get_level_values(1), before_exit.index.get_level_values(2), before_exit.RollNumber])["Correlation"].count()
+        trade_duration.name = "TradeDuration"
 
-        trade_stats = pd.Series({"Median PnL":trade_pnl.median()*100,
-                                 "Avg PnL":trade_pnl.mean()*100,
-                                 "Max PnL":trade_pnl.max()*100,
-                                 "Min PnL":trade_pnl.min()*100,
-                                 "Median Trade Duration": trade_duration.median(),
-                                 "Mean Trade Duration": trade_duration.mean(),
+        trade_stats = pd.Series({"Median PnL (bps)":round(trade_pnl.median()*100*100),
+                                 "Avg PnL (bps)":round(trade_pnl.mean()*100*100),
+                                 "Max PnL %":round(trade_pnl.max()*100),
+                                 "Min PnL %":round(trade_pnl.min()*100),
+                                 "Median Trade Duration (days)": trade_duration.median(),
+                                 "Mean Trade Duration (day)": np.round(trade_duration.mean(),2),
                                  "Proportion winning trades":f"{int(len(trade_pnl[trade_pnl>0])/len(trade_pnl)*100)}%",
                                  })
 
         trade_stats = pd.DataFrame((trade_stats).round(2)).rename({0:"Pair Trade statistics"}, axis=1)
 
-        st.dataframe(trade_stats.T.round(2))
-        # fig, axes = plt.subplots(figsize=(6, 4))
-        # axes.set_title(f"Distribution of PnL per trade")
-        # trade_pnl.hist(bins=100)
-        # st.pyplot(fig)
+        st.dataframe(trade_stats)
+
+        col1, col2 = st.columns(2)
+
+        fig, axes = plt.subplots(figsize=(6, 4))
+        axes.set_title(f"Distribution of PnL per trade")
+        sns.histplot(data=trade_pnl, ax=axes, kde=True)
+        axes.xaxis.set_major_formatter(mtick.PercentFormatter())
+        col1.pyplot(fig)
 
         fig, axes = plt.subplots(figsize=(6, 4))
         axes.set_title(f"Distribution of trade duration")
-        trade_duration.hist(bins=10, alpha=0.75, color="darkblue")
-        st.pyplot(fig)
-
-        # fig = go.Figure()
-        # fig.add_trace(go.Bar(x=top_bottom_performer.index, y=top_bottom_performer["CumPairPnL"]))
-        # fig.update_layout(
-        #     title=f"Average trade return of top/bottom {n} performers"
-        # )
-        # st.plotly_chart(fig)
+        sns.histplot(data=trade_duration, ax=axes, kde=True)
+        col2.pyplot(fig)
 
         st.subheader("Strategy features")
         # df = pd.read_csv(f"{path}/portfolio_composition.csv", index_col=0, parse_dates=True)
@@ -553,15 +552,30 @@ class WebApp(object):
 
         st.subheader("Signal Statistics")
 
-        fig, axes = plt.subplots(figsize=(10, 4))
-        df["HR"].hist(ax=axes, bins=250, alpha=0.75, color="darkblue")
-        axes.set_title("Distribution of Hedge Ratio at Entry Date")
-        st.pyplot(fig)
+        col1, col2 = st.columns(2)
 
         fig, axes = plt.subplots(figsize=(10, 4))
-        df["Correlation"].hist(ax=axes, bins=250, alpha=0.75)
-        axes.set_title("Distribution of Correlation at Entry Date")
-        st.pyplot(fig)
+        sns.histplot(data=df["Correlation"], ax=axes, kde=True)
+        # df["Correlation"].hist(ax=axes, bins=250, alpha=0.75)
+        axes.set_title("Correlation at Entry Date")
+        col1.pyplot(fig)
+
+        fig, axes = plt.subplots(figsize=(10, 4))
+        sns.histplot(data=df["HR"], ax=axes, kde=True)
+        # df["HR"].hist(ax=axes, bins=250, alpha=0.75, color="darkblue")
+        axes.set_title("Hedge Ratio at Entry Date")
+        col2.pyplot(fig)
+
+        col3, col4 = st.columns(2)
+        sns.histplot(data=p.EntrySignal[p.EntryDate], ax=axes, kde=True)
+        # df["Correlation"].hist(ax=axes, bins=250, alpha=0.75)
+        axes.set_title("Signal at Entry Date")
+        col3.pyplot(fig)
+
+        sns.histplot(data=p.RunningSignal[p.ExitDate], ax=axes, kde=True)
+        # df["Correlation"].hist(ax=axes, bins=250, alpha=0.75)
+        axes.set_title("Signal at Exit Date")
+        col4.pyplot(fig)
 
         # # portfolio
         def _count_exit(field):
