@@ -11,10 +11,10 @@ def get_settings(params):
                            correlation_window=120,  # sliding window or half-life in the case of EWMCorrelation
                            correlation_quantile=0.10,  # top (1-q) pairs pass the correlation screen
                            hedge_ratio_estimate="KalmanFilter", # RollingOLS, KalmanFilter
-                           mean_reversion_window=45,
+                           mean_reversion_window=20,
                            select_top_n_stocks=10, # optional param, select top n stocks wrt mean_reversion signal at each rebal date
                            signal_threshold_entry=None, # optional param, hard thresholding on the mean-reversion signal
-                           signal_threshold_exit=0, #drives exit
+                           signal_threshold_exit=0.10, #drives exit
                             )
 
     strategy_settings = dict(strategy_name="base_strategy",
@@ -29,7 +29,7 @@ def get_settings(params):
                              start_value=100,
 
                              notional_sizing="TargetNotional",  # TargetNotional, TargetVol
-                             leverage=2,  # gross leverage of L/S strategy if sizing by TargetNotional
+                             leverage=4,  # gross leverage of L/S strategy if sizing by TargetNotional
                              target_vol_level=0.05,  # drives leverage of the L/S strategy if sizing by TargetVol
 
                              transaction_cost=0,
@@ -126,8 +126,8 @@ test = [dict(folder="online_strategy",
 
 iterations=test
 # iterations=[]
-# for i in range(1,10):
-#     iterations+=locals()[f"iterations{i}"]
+for i in range(1,10):
+    iterations+=locals()[f"iterations{i}"]
 
 strategies_to_run = [get_settings(params) for params in iterations]
 

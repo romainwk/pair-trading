@@ -270,20 +270,30 @@ class WebApp(object):
         st.markdown(
             r""" 
             The baseline strategy is: 
-        - $T_{L}$ = 120 days (window used to compute correlations and identify pairs),
-        - $T_{S}$ = 45 days (window used to compute the mean-reversion/dislocation signal),
+        - $T_{L}$ = 6M (window used to compute correlations and identify pairs),
+        - $T_{S}$ = 1M (window used to compute the mean-reversion/dislocation signal),
         - **correlation_estimate** = EWMCorrelation, 
         - **hedge_ratio_estimate** = KalmanFilter,
         - **correlation_quantile**=0.10 (triple quantile sorting for pairwise correlations),  
         - **select_top_n_stocks** = 10 (after ranking all stocks across all GIC clusters, select best 10 stocks based on MR signal),
-        - **signal_threshold_exit** = 0, (when the MR signal reverts back to 0, exit the trade), 
+        - **signal_threshold_exit** = 0.10, (when the MR signal reverts back to below 0.10, exit the trade), 
         - **rebal_frequency** = 5, (when enter a new set of trades), 
         - **max_holding_period** = 10, 
         - **profit_taking** = 5%,  
         - **stop_loss** = 5%,
         - **notional_sizing** = "TargetNotional" (entry size scaled to match a gross notional target, accounting for trades already in the portfolio)
-        - **leverage** = 2, 
+        - **leverage** = 4, 
             """)
+
+        st.markdown(
+            r"""
+            Takeaway: 
+        - Strategy is relatively robust to the estimation window $T_{L}$ used to estimate correlations, as long as the mean reversion signal is chosen to be a small fraction of $T_{L}$ (e.g. $T_{S}$=0.25*$T_{L}$)
+        - Regularising correlation estimates adds value (EWM/Shrinkage increase SR by 0.25-0.5)
+        - This is also reflected by Kalman filter outperforming OLS for the hedge ratio estimate (prior on $\beta ~N(1,1)$)
+        - Profit-taking / Stop loss don't add alpha but reduce overall avg leverage (and therefore DDs) 
+        
+        """)
 
         # Rolling window
         st.subheader(r"Sensitivity to the rolling windows " + r"$T_{L}$" + ", " + "$T_{S}$")
