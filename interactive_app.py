@@ -380,22 +380,16 @@ class WebApp(object):
         # st.dataframe(perf_metrics)
 
         default = ["Sharpe Ratio (daily)", "Sharpe Ratio (weekly)"]
-        # st.subheader(r"Sensitivity to the rebalancing frequency")
-        # key = "reb_freq"
-
-        # df = get_df(iteration=settings.iterations5)
-        # lineplot(df, default=df.columns, key=key)
-        #
-        # perf_metrics = performance_metrics(df)
-        # lineplot(perf_metrics.T, default=default, key=key, type="Bar")
-        #
-        # # max holding period
 
         st.subheader(r"Sensitivity to the max holding period")
         key = "max_holding_period"
         df = get_df(iteration=settings.iterations6)
+        lineplot(df, default=df.columns, key=f"{key}_line")
         perf_metrics = performance_metrics(df)
         lineplot(perf_metrics.T, default=default, key=key, type="Bar")
+
+        st.subheader(r"Correlation vs. Sharpe ratio")
+
 
         st.subheader(r"Sensitivity to the profit taking threshold")
         key = "profit_taking"
@@ -410,7 +404,6 @@ class WebApp(object):
         perf_metrics = performance_metrics(df)
         lineplot(df, default=df.columns, key=key)
         lineplot(perf_metrics.T, default=default, key=f"{key}_bar", type="Bar")
-
 
 
         # perf_metrics = performance_metrics(df)

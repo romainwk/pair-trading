@@ -82,6 +82,8 @@ iterations5 = [dict(rebal_frequency=w,
 iterations6 = [dict(max_holding_period=w,
                     strategy_name=f"Max_Holding_Period_{int(w)}",
                     folder="sensi_to_holding_period",
+                    notional_sizing="TargetVol",
+                    target_vol_level=0.08,
                     ) for w in [2, 3, 4, 5]+ list(range(10,90,10))]
 
 iterations7 = [dict(profit_taking=x,
@@ -119,15 +121,20 @@ iterations_mr_signal= [dict(hedge_ratio_estimate=s,
                                folder="online_strategy",
                                 ) for s in ["RollingOLS", "KalmanFilter"] for w in [20,30,45,60]]
 
-test = [dict(folder="online_strategy",
-             strategy_name="online_strategy",
-             transaction_cost=0,
-             )]
+iterations_correlation_vs_pnl = [dict(folder=f"{s}_correlation_impact_pnl",
+                     correlation_estimate=s,
+                     strategy_name="correlation_impact",
+                     transaction_cost=0,
+                     notional_sizing="TargetVol",
+                     target_vol_level=0.08,
+                     select_top_n_stocks=20,
+                     correlation_quantile=0.15,
+                     ) for s in ["SampleCorrelation", "EWMCorrelation", "LedoitWolfShrinkage", "OracleApproximatingShrinkage"]]
 
-iterations=iterations6
-# iterations=[]
-# for i in range(1,10):
-#     iterations+=locals()[f"iterations{i}"]
+# iterations=iterations_correlation_vs_pnl
+iterations=[]
+for i in range(1,10):
+    iterations+=locals()[f"iterations{i}"]
 
 strategies_to_run = [get_settings(params) for params in iterations]
 
