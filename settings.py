@@ -1,8 +1,8 @@
 import datetime
 import numpy as np
 
-# URL = r"C:\Users\Romain\PycharmProjects\pythonProject"
-URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
+URL = r"C:\Users\Romain\PycharmProjects\pythonProject"
+# URL = 'https://raw.githubusercontent.com/romainwk/pair-trading/master'
 
 def get_settings(params):
     signal_settings = dict(cluster_by="GIC_sector", #, GIC_sector, GIC_sub_industry
@@ -82,7 +82,7 @@ iterations5 = [dict(rebal_frequency=w,
 iterations6 = [dict(max_holding_period=w,
                     strategy_name=f"Max_Holding_Period_{int(w)}",
                     folder="sensi_to_holding_period",
-                    ) for w in [1, 2, 3, 4, 5]]# + list(range(10,90,10))]
+                    ) for w in [2, 3, 4, 5]+ list(range(10,90,10))]
 
 iterations7 = [dict(profit_taking=x,
                     strategy_name=f"Profit_Taking_Threshold_{int(x*100)}pct",
