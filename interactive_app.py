@@ -417,8 +417,10 @@ class WebApp(object):
                              correlation_window=tuple(int(x) for x in np.arange(80,250,10)), #(60,90,120,150),
                              correlation_quantile=(0.05, 0.10, 0.15, 0.20),
                              mean_reversion_window=(20,30,45,60),
+                             select_top_n_stocks=(1,5,10,15,20),
                              rebal_frequency=(5,10,15,20,),  # how frequently a new set of pairs is considered
                              max_holding_period=(5,10,15,20, 40, 60, 80),
+                             signal_threshold_exit=(0,0.1,0.2,0.3,0.4,0.5),
                              profit_taking=(None, 0.01,0.025,0.05,0.075, 0.10),
                              stop_loss=(None, 0.01,0.025,0.05,0.075, 0.10),
 
@@ -433,8 +435,10 @@ class WebApp(object):
                              correlation_window=4,
                              correlation_quantile=1,
                              mean_reversion_window=0,
+                             select_top_n_stocks=2,
                              rebal_frequency=0,  # how frequently a new set of pairs is considered
                              max_holding_period=1,
+                             signal_threshold_exit=1,
                              profit_taking=3,
                              stop_loss=3,
 
