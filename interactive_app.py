@@ -425,7 +425,7 @@ class WebApp(object):
                              stop_loss=(None, 0.01,0.025,0.05,0.075, 0.10),
 
                              notional_sizing=("TargetNotional", "TargetVol"),  # TargetNotional, TargetVol
-                             leverage=(0.5,1,2,4),  # gross leverage of L/S strategy if sizing by TargetNotional
+                             leverage=(1,2,4,8),  # gross leverage of L/S strategy if sizing by TargetNotional
                              transaction_cost=(0, 0.0025, 0.005, 0.01, 0.015),
                              # n_parallel_jobs=(1,4,8,16),
                              )
