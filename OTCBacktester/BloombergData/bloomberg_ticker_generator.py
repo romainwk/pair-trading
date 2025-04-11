@@ -152,6 +152,7 @@ def _sofr_caps_floors():
     s = pd.Series(ticker_tbl)
     s.to_excel("ticker_mapping_sofr_caps_floors.xlsx", index=True, header=False)
 
+
 def main():
     # _sofr_swaptions_vol()
     # _libor_swaptions_vol()
