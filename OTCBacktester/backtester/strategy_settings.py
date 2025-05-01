@@ -11,7 +11,7 @@ settings = dict(Name="StrategyTest",
                 Dcm= ql.Actual360(), # FIXME maybe add this a ccy specific dictionnary in settings
                 Bdc=ql.ModifiedFollowing,
                 Legs = dict(
-                    Leg1=dict(Ccy="EUR",
+                    Leg1=dict(Ccy="USD",
                                Instrument="IRSwap", # IRSwap, IRSwaption, IRCapFloor
                                Payoff="Payer",
                                Moneyness="ATMf",
@@ -21,7 +21,7 @@ settings = dict(Name="StrategyTest",
                                Expiry="1Y",
                                Tenor="10Y",
                                ),
-                    Leg2=dict(Ccy="EUR",
+                    Leg2=dict(Ccy="USD",
                                Instrument="IRSwap", # IRSwap, IRSwaption, IRCapFloor
                                Payoff="Receiver",
                                Moneyness="ATMf",

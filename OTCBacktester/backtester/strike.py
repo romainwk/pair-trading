@@ -22,7 +22,7 @@ class OTCStrike(object):
         schedule_tbl = pd.read_csv(f"{path_load}/schedule.csv")
         schedule_tbl = utils.iso_to_dates(schedule_tbl)
         self.schedule_tbl = schedule_tbl
-        print(f"Schedule loaded from {path_load}/schedule.pkl")
+        print(f"Schedule loaded from {path_load}/schedule.csv")
 
         self.schedule_tbl = self.schedule_tbl
 
@@ -63,37 +63,7 @@ class OTCStrikeIRSwap(OTCStrike):
 
         #FIXME move this in the pricing.py module // make it ccy specific too and link to real historical data
 
-        yts = ql.RelinkableYieldTermStructureHandle()
-
-        instruments = [
-            ('depo', '6M', 0.025),
-            ('swap', '1Y', 0.031),
-            ('swap', '2Y', 0.032),
-            ('swap', '3Y', 0.035)
-        ]
-
-        helpers = ql.RateHelperVector()
-        index = ql.Euribor6M(yts)
-        for instrument, tenor, rate in instruments:
-            if instrument == 'depo':
-                helpers.append(ql.DepositRateHelper(rate, index))
-            if instrument == 'fra':
-                monthsToStart = ql.Period(tenor).length()
-                helpers.append(ql.FraRateHelper(rate, monthsToStart, index))
-            if instrument == 'swap':
-                swapIndex = ql.EuriborSwapIsdaFixA(ql.Period(tenor))
-                helpers.append(ql.SwapRateHelper(rate, swapIndex))
-        curve = ql.PiecewiseLogCubicDiscount(2, ql.TARGET(), helpers, ql.Actual365Fixed())
-
-        yts.linkTo(curve)
-        engine = ql.DiscountingSwapEngine(yts)
-
-        tenor = ql.Period('1y')
-        fixedRate = None
-        forwardStart = ql.Period("1y")
-
-        swap = ql.MakeVanillaSwap(tenor, index, fixedRate, forwardStart, nominal=10e6, pricingEngine=engine)
-        swap.fairRate()
+        F = {(t, n): pricing.IRSwap()(ccy=args["Ccy"], payoff=args["Payoff"], t=t, T1=T1, T2=T2) for t, n, T1, T2 in zip(tbl.EntryDate, tbl.TradeNumber, tbl.ExpiryDates, tbl.TenorDates)}
 
 
         return tbl

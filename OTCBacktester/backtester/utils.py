@@ -1,3 +1,6 @@
+from datetime import datetime
+from OTCBacktester.backtester.ccy_settings import SOFR_TRANSITION_DATE
+
 import QuantLib as ql
 
 def dates_to_iso(df):
@@ -10,6 +13,10 @@ def string_to_ql_date(date_str):
     year, month, day = map(int, date_str.split('-'))
     return ql.Date(day, month, year)
 
+def datetime_to_ql_date(t):
+    return ql.Date(t.day, t.month, t.year)
+
+
 def iso_to_dates(df):
     for col in df.select_dtypes(include=object):
         sample = df[col].iloc[0]
@@ -19,3 +26,14 @@ def iso_to_dates(df):
             except:
                 pass
     return df
+
+def get_index(ccy, t):
+    if not isinstance(t, ql.Date):
+        t = datetime_to_ql_date(t)
+
+    if ccy == "USD" and t<= SOFR_TRANSITION_DATE:
+        return "LIBOR"
+    elif ccy == "USD" and t > SOFR_TRANSITION_DATE:
+        return "SOFR"
+    elif ccy == "EUR":
+        return "EURIBOR"
