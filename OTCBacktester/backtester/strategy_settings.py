@@ -7,7 +7,7 @@ settings = dict(Name="StrategyTest",
                 StartDate=ql.Date(1,1,2020),
                 EndDate=ql.Date(1,3,2025),
                 RebalFreq="1M",
-                Calendar = [ql.TARGET(), ql.UnitedStates(ql.UnitedStates.Settlement)],
+                Calendar = [ql.TARGET(), ql.UnitedStates(ql.UnitedStates.Settlement), ql.UnitedStates(ql.UnitedStates.GovernmentBond)],
                 Dcm= ql.Actual360(), # FIXME maybe add this a ccy specific dictionnary in settings
                 Bdc=ql.ModifiedFollowing,
                 Legs = dict(

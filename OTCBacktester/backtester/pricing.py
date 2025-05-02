@@ -39,7 +39,8 @@ class IRSwap:
             rate_handle = ql.QuoteHandle(ql.SimpleQuote(rate))
             if instrument == 'swap':
                 if index == "SOFR":
-                    float_index = ql.Sofr(yts)
+                    float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
+                    # float_index = ql.Sofr(yts)
 
                     settlement_days = 2
                     helper = ql.OISRateHelper(
@@ -100,8 +101,8 @@ class IRSwap:
         # Build swap
         if index == "SOFR":
 
-            # float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
-            float_index = ql.Sofr(yts)
+            float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
+            # float_index = ql.Sofr(yts)
 
             schedule = ql.Schedule(T1, T2, ql.Period("1Y"), calendar,
                                    ql.ModifiedFollowing, ql.ModifiedFollowing,
@@ -186,8 +187,6 @@ class IRSwap:
         annuity = self._get_annuity_from_schedule(schedule, fixed_day_count, yts)
         bpv = annuity * notional * 1e-4
 
-        print(f" {T1}{T2} - Annuity: {annuity:.6f}, BPV: {bpv:.2f}")
-
         return dict(F=F, Annuity=annuity)
 
 
@@ -225,8 +224,8 @@ def _check_swap_rate_against_nodes(index):
 
 def main():
     # IRSwap()(ccy="USD", payoff="Payer", t=ql.Date(8,1,2021), T1="2D", T2="3M", curve_data=None)
-    # _check_swap_rate_against_nodes(index="LIBOR")
-    # _check_swap_rate_against_nodes(index="SOFR")
+    _check_swap_rate_against_nodes(index="LIBOR")
+    _check_swap_rate_against_nodes(index="SOFR")
     pass
 
 if __name__ == '__main__':
