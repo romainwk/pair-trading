@@ -36,18 +36,23 @@ class IRSwap:
         helpers = ql.RateHelperVector()
 
         for instrument, tenor, rate in instruments:
+            rate_handle = ql.QuoteHandle(ql.SimpleQuote(rate))
             if instrument == 'swap':
                 if index == "SOFR":
-                    float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
-                    helper = ql.SwapRateHelper(rate,
-                                               ql.Period(tenor),
-                                               calendar,
-                                               ql.Annual,
-                                               ql.ModifiedFollowing,
-                                               ql.Actual360(),
-                                               float_index, )
+                    float_index = ql.Sofr(yts)
+
+                    settlement_days = 2
+                    helper = ql.OISRateHelper(
+                        settlement_days,
+                        ql.Period(tenor),
+                        rate_handle,
+                        float_index,
+                        # yts,
+
+                    )
+
                 elif index == "LIBOR":
-                    rate_handle = ql.QuoteHandle(ql.SimpleQuote(rate))
+
                     float_index = ql.USDLibor(ql.Period("3M"), yts)
 
                     helper = ql.SwapRateHelper(
@@ -71,18 +76,21 @@ class IRSwap:
         # curve = ql.PiecewiseLinearZero(2, calendar, helpers, ql.Actual365Fixed())
         if index == "SOFR":
             curve = ql.PiecewiseLogLinearDiscount(2, calendar, helpers, ql.Actual360())
+            # curve = ql.LogLinearZeroCurve(ql.LogLinear(), ql.Period("1D"), helpers, ql.Actual360())
         elif index == "LIBOR":
             curve = ql.PiecewiseLinearZero(2, calendar, helpers, ql.Thirty360(ql.Thirty360.BondBasis))
+            # curve = ql.PiecewiseYieldCurve(ql.LogLinear(), ql.Period("1D"), helpers,ql.Thirty360(ql.Thirty360.BondBasis))
         return curve
 
     def _get_dates(self, T1, T2, t, calendar):
         spot_lag = 2
         spot_date = calendar.advance(t, ql.Period(spot_lag), ql.Days)  # spot date
+
         if isinstance(T1, str):
             if T1 in ["0D", "2D"]:
-                T1 = calendar.advance(t, ql.Period(spot_lag), ql.Days)
+                T1 = calendar.advance(t, ql.Period(2, ql.Days))  # spot date
             else:
-                T1 = calendar.advance(spot_date, ql.Period(T1))
+                T1 = calendar.advance(calendar.advance(t, ql.Period(2, ql.Days)), ql.Period(T1))
 
         if isinstance(T2, str):
             T2 = calendar.advance(T1, ql.Period(T2))
@@ -92,7 +100,8 @@ class IRSwap:
         # Build swap
         if index == "SOFR":
 
-            float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
+            # float_index = ql.OvernightIndex("SOFR", 0, ql.USDCurrency(), calendar, ql.Actual360(), yts)
+            float_index = ql.Sofr(yts)
 
             schedule = ql.Schedule(T1, T2, ql.Period("1Y"), calendar,
                                    ql.ModifiedFollowing, ql.ModifiedFollowing,
@@ -188,6 +197,7 @@ def _check_swap_rate_against_nodes(index):
     '''
 
     if index=="LIBOR":
+        # matches perfectly now
         mkt_curve = data.SwapCurveData()("USD", "LIBOR")
         mkt_curve_t = mkt_curve.loc[ql.Date(8, 1, 2021)] * 0.01
 
@@ -200,7 +210,7 @@ def _check_swap_rate_against_nodes(index):
         res.to_excel(r"C:\Users\Romain\PycharmProjects\pythonProject\OTCBacktester\backtester\strategies\test\StrategyTest\libor_swap_curve_example2.xlsx")
 
     elif index=="SOFR":
-        # # FIXME can't reprice the nodes with SOFR swaps !!
+        # matches perfectly now
         mkt_curve = data.SwapCurveData()("USD", "SOFR")
         mkt_curve_t = mkt_curve.loc[ql.Date(8, 1, 2025)]*0.01
         repriced_curve = {T: IRSwap()(ccy="USD", payoff="Payer", t=ql.Date(8, 1, 2025), T1="0D", T2=T, curve_data=mkt_curve).get("F") for T in list(mkt_curve_t.index)[:-1]}
@@ -216,6 +226,7 @@ def _check_swap_rate_against_nodes(index):
 def main():
     # IRSwap()(ccy="USD", payoff="Payer", t=ql.Date(8,1,2021), T1="2D", T2="3M", curve_data=None)
     _check_swap_rate_against_nodes(index="LIBOR")
+    # _check_swap_rate_against_nodes(index="SOFR")
     pass
 
 if __name__ == '__main__':
