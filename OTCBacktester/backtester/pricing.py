@@ -225,7 +225,7 @@ def _check_swap_rate_against_nodes(index):
 
 def main():
     # IRSwap()(ccy="USD", payoff="Payer", t=ql.Date(8,1,2021), T1="2D", T2="3M", curve_data=None)
-    _check_swap_rate_against_nodes(index="LIBOR")
+    # _check_swap_rate_against_nodes(index="LIBOR")
     # _check_swap_rate_against_nodes(index="SOFR")
     pass
 
