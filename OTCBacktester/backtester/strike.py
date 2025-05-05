@@ -34,7 +34,7 @@ class OTCStrike(object):
         for leg_name, args in self.Legs.items():
             class_name = self.instru_to_class[args["Instrument"]]
             tbl_leg = tbl[tbl["LegName"] == leg_name].copy()
-            x=getattr(strike, class_name)(self.settings).get_strike(leg_name, args, tbl_leg)
+            x=getattr(strike, class_name)(self.settings).get_strike(args, tbl_leg)
             res.append(x)
 
         res = pd.concat(res).sort_values("TradeNumber")
@@ -55,9 +55,24 @@ class OTCStrikeIRSwap(OTCStrike):
     def __init__(self, settings):
         super().__init__(settings)
 
-    def get_strike(self, leg_name, args, tbl):
+    def get_strike(self, args, tbl):
 
-        F = {(t, n): pricing.IRSwap()(ccy=args["Ccy"], payoff=args["Payoff"], t=t, T1=T1, T2=T2) for t, n, T1, T2 in zip(tbl.EntryDate, tbl.TradeNumber, tbl.ExpiryDates, tbl.TenorDates)}
+        F = {(t, n): pricing.IRSwap()(ccy=args["Ccy"], payoff=args["Payoff"], t=t, T1=T1, T2=T2, K=args["Strike"]) for t, n, T1, T2 in zip(tbl.EntryDate, tbl.TradeNumber, tbl.ExpiryDates, tbl.TenorDates)}
+
+        tbl_F = pd.DataFrame(F).T
+        tbl_F = tbl_F.reset_index().rename({"level_0":"EntryDate", "level_1":"TradeNumber"}, axis=1)
+
+        tbl = tbl.merge(tbl_F, on=["EntryDate", "TradeNumber"])
+
+        return tbl
+
+class OTCStrikeIRSwaption(OTCStrike):
+    def __init__(self, settings):
+        super().__init__(settings)
+
+    def get_strike(self, args, tbl):
+
+        F = {(t, n): pricing.IRSwaption()(ccy=args["Ccy"], payoff=args["Payoff"], t=t, T1=T1, T2=T2,  K=args["Strike"]) for t, n, T1, T2 in zip(tbl.EntryDate, tbl.TradeNumber, tbl.ExpiryDates, tbl.TenorDates)}
 
         tbl_F = pd.DataFrame(F).T
         tbl_F = tbl_F.reset_index().rename({"level_0":"EntryDate", "level_1":"TradeNumber"}, axis=1)
